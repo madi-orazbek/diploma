@@ -1,0 +1,362 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  CLIENT
+  ADMIN
+}
+
+enum OrderStatus {
+  OPEN
+  IN_REVIEW
+  INVITED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  SENT
+  SHORTLISTED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum NotificationType {
+  SYSTEM
+  ORDER
+  INVITATION
+  APPLICATION
+  CHAT
+  RECOMMENDATION
+}
+
+enum MessageKind {
+  USER
+  SYSTEM
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  PLATFORM_ONLY
+  PRIVATE
+}
+
+model User {
+  id            String   @id @default(cuid())
+  role          Role
+  fullName      String
+  email         String   @unique
+  passwordHash  String
+  city          String?
+  avatarUrl     String?
+  isVerified    Boolean  @default(false)
+  isSuspended   Boolean  @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  studentProfile StudentProfile?
+  clientProfile  ClientProfile?
+  sentMessages   Message[]       @relation("sentMessages")
+  notifications  Notification[]
+  reviewsGiven   Review[]        @relation("reviewsGiven")
+  reviewsReceived Review[]       @relation("reviewsReceived")
+  ratingsGiven   Rating[]        @relation("ratingsGiven")
+  ratingsReceived Rating[]       @relation("ratingsReceived")
+  savedOrders    SavedOrder[]
+  aiSessions     AIChatSession[]
+  applications   OrderApplication[]
+}
+
+model StudentProfile {
+  id                String            @id @default(cuid())
+  userId            String            @unique
+  university        String?
+  bio               String?
+  hourlyRateMin     Int?
+  hourlyRateMax     Int?
+  experienceLevel   String?
+  xp                Int               @default(0)
+  reputation        Float             @default(0)
+  completedJobs     Int               @default(0)
+  inProgressJobs    Int               @default(0)
+  visibility        ProfileVisibility @default(PUBLIC)
+  preferredBudgetMin Int?
+  preferredBudgetMax Int?
+  preferredDeadlineDays Int?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills            StudentSkill[]
+  portfolioProjects PortfolioProject[]
+  recommendations   RecommendationLog[]
+  invitations       Invitation[]
+}
+
+model ClientProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  companyName     String
+  companyDescription String?
+  website         String?
+  industry        String?
+  verifiedClient  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders          Order[]
+}
+
+model Skill {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  category    String?
+  createdAt   DateTime       @default(now())
+
+  studentSkills StudentSkill[]
+  orderTags      OrderTag[]
+}
+
+model StudentSkill {
+  id          String   @id @default(cuid())
+  studentId   String
+  skillId     String
+  level       Int      @default(1)
+  years       Float?
+  createdAt   DateTime @default(now())
+
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill       Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, skillId])
+  @@index([skillId])
+}
+
+model PortfolioProject {
+  id          String   @id @default(cuid())
+  studentId   String
+  title       String
+  description String?
+  stack       String[]
+  projectUrl  String?
+  imageUrl    String?
+  category    String?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  clientId      String
+  title         String
+  description   String
+  budgetMin     Int
+  budgetMax     Int
+  deadline      DateTime
+  status        OrderStatus @default(OPEN)
+  category      String?
+  isVerifiedClient Boolean   @default(false)
+  requiredSkills String[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  client        ClientProfile      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tags          OrderTag[]
+  applications  OrderApplication[]
+  invitations   Invitation[]
+  chats         Chat[]
+  reviews       Review[]
+  ratings       Rating[]
+  savedBy       SavedOrder[]
+}
+
+model OrderTag {
+  id        String   @id @default(cuid())
+  orderId   String
+  skillId   String
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, skillId])
+}
+
+model OrderApplication {
+  id            String            @id @default(cuid())
+  orderId        String
+  studentUserId  String
+  coverLetter    String?
+  proposedBudget Int?
+  etaDays        Int?
+  status         ApplicationStatus @default(SENT)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  order          Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  student        User             @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, studentUserId])
+  @@index([studentUserId, status])
+}
+
+model Invitation {
+  id            String           @id @default(cuid())
+  orderId        String
+  studentId      String
+  message        String?
+  status         InvitationStatus @default(PENDING)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  order          Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  student        StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, studentId])
+}
+
+model Chat {
+  id            String   @id @default(cuid())
+  orderId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  order          Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  participants   ChatParticipant[]
+  messages       Message[]
+}
+
+model ChatParticipant {
+  id          String   @id @default(cuid())
+  chatId       String
+  userId       String
+  lastReadAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  chat         Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  chatId       String
+  senderId     String
+  body         String
+  kind         MessageKind @default(USER)
+  createdAt    DateTime    @default(now())
+
+  chat         Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender       User        @relation("sentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model RecommendationLog {
+  id            String   @id @default(cuid())
+  studentId      String
+  orderId        String
+  score          Float
+  explanation    String
+  featureVector  Json?
+  modelVersion   String?
+  createdAt      DateTime @default(now())
+
+  student        StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, score])
+}
+
+model Notification {
+  id            String           @id @default(cuid())
+  userId         String
+  type           NotificationType
+  title          String
+  body           String
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  orderId        String
+  fromUserId     String
+  toUserId       String
+  ratingValue    Int
+  content        String?
+  createdAt      DateTime @default(now())
+
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromUser       User     @relation("reviewsGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser         User     @relation("reviewsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+}
+
+model Rating {
+  id            String   @id @default(cuid())
+  orderId        String
+  fromUserId     String
+  toUserId       String
+  value          Float
+  createdAt      DateTime @default(now())
+
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromUser       User     @relation("ratingsGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser         User     @relation("ratingsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+}
+
+model SavedOrder {
+  id            String   @id @default(cuid())
+  userId         String
+  orderId        String
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orderId])
+}
+
+model AIChatSession {
+  id            String   @id @default(cuid())
+  userId         String
+  context        Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages       AIMessage[]
+}
+
+model AIMessage {
+  id            String   @id @default(cuid())
+  sessionId      String
+  role           String
+  content        String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  session        AIChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}

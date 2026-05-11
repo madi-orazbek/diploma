@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {@apply bg-[#f7f8fb] text-slate-900 antialiased;}
+.card {@apply bg-white border border-slate-200/90 rounded-3xl shadow-[0_8px_32px_rgba(15,23,42,0.06)];}
+.container-app {@apply max-w-7xl mx-auto px-4 md:px-6;}
+.section-title {@apply text-2xl md:text-3xl font-semibold tracking-tight text-slate-900;}
+.muted {@apply text-slate-600;}
+.pill {@apply inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600;}
+.status-pill {@apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;}
+.btn-primary {@apply inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200;}
+.btn-secondary {@apply inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200;}

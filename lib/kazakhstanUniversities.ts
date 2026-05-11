@@ -1,0 +1,22 @@
+export const KAZAKHSTAN_UNIVERSITIES = [
+  'Al-Farabi Kazakh National University',
+  'Almaty Management University',
+  'Astana IT University',
+  'Caspian University',
+  'D. Serikbayev East Kazakhstan Technical University',
+  'Karaganda Buketov University',
+  'KIMEP University',
+  'Khoja Akhmet Yassawi International Kazakh-Turkish University',
+  'L.N. Gumilyov Eurasian National University',
+  'M. Auezov South Kazakhstan University',
+  'NARXOZ University',
+  'Nazarbayev University',
+  'North Kazakhstan University',
+  'S. Amanzholov East Kazakhstan University',
+  'Satbayev University',
+  'Suleyman Demirel University',
+  'Toraighyrov University',
+  'University of International Business',
+  'West Kazakhstan University',
+  'Yessenov University'
+] as const;
