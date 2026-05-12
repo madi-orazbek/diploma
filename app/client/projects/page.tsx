@@ -15,11 +15,16 @@ export default function ClientProjectsPage() {
   async function load() {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ q: query }).toString();
-      const res = await fetch(`/api/projects?${qs}`);
+      const res = await fetch('/api/client/projects', { credentials: 'include' });
       const payload = await res.json();
-      let data: any[] = payload.data || payload.recommendations || [];
-      data = data.filter((x: any) => x.clientId);
+      let data: any[] = payload.data || [];
+      if (query) {
+        const q = query.toLowerCase();
+        data = data.filter((x: any) =>
+          String(x.title || '').toLowerCase().includes(q) ||
+          String(x.description || '').toLowerCase().includes(q)
+        );
+      }
       if (status) data = data.filter((x: any) => x.status === status);
       setRows(data);
     } finally {
