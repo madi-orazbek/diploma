@@ -2,10 +2,9 @@ import { z } from 'zod';
 import { dbConnect } from '@/lib/mongodb';
 import { handleApi, ok } from '@/lib/api';
 import { requireAuth } from '@/lib/auth';
-import Conversation from '@/models/Conversation';
 import Message from '@/models/Message';
 import Project from '@/models/Project';
-import mongoose from 'mongoose';
+import { getOrCreateConversation, touchConversation } from '@/lib/conversations';
 
 const inviteSchema = z.object({
   studentId: z.string().min(1),
@@ -22,26 +21,30 @@ export async function POST(req: Request) {
     if (!project) throw new Error('Project not found');
     if (String(project.clientId) !== user.userId) throw new Error('Forbidden');
 
-    // Find or create conversation between this client and student (no applicationId)
-    let conv = await Conversation.findOne({
+    const conv = await getOrCreateConversation({
       studentId: body.studentId,
-      employerId: new mongoose.Types.ObjectId(user.userId),
-      applicationId: { $exists: false },
+      employerId: user.userId,
+      projectMongoId: body.projectId,
     });
 
-    if (!conv) {
-      conv = await Conversation.create({
-        studentId: body.studentId,
-        employerId: new mongoose.Types.ObjectId(user.userId),
-      });
-    }
+    const inviteText = `Hi! I'd like to invite you to apply for our project: "${project.title}". Please check it out and apply if you're interested.`;
 
-    await Message.create({
+    // Check if an invite for this project was already sent to avoid spam
+    const existing = await Message.findOne({
       conversationId: conv._id,
       senderId: user.userId,
-      senderRole: 'CLIENT',
-      text: `Hi! I'd like to invite you to apply for our project: "${project.title}". Please check it out and apply if you're interested.`,
-    });
+      text: inviteText,
+    }).lean();
+
+    if (!existing) {
+      await Message.create({
+        conversationId: conv._id,
+        senderId: user.userId,
+        senderRole: 'CLIENT',
+        text: inviteText,
+      });
+      await touchConversation(conv._id, inviteText);
+    }
 
     return ok({ conversationId: String(conv._id) }, 201);
   });

@@ -4,6 +4,7 @@ import Conversation from '@/models/Conversation';
 import { dbConnect } from '@/lib/mongodb';
 import { handleApi, ok } from '@/lib/api';
 import { requireAuth } from '@/lib/auth';
+import { touchConversation } from '@/lib/conversations';
 
 const sendSchema = z.object({
   conversationId: z.string().min(8),
@@ -46,6 +47,8 @@ export async function POST(req: Request) {
       senderRole: user.role,
       text: payload.text,
     });
+
+    await touchConversation(conv._id, payload.text);
 
     return ok(message, 201);
   });

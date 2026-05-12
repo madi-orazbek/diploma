@@ -3,20 +3,38 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+type ConvEmployer = { fullName?: string; companyName?: string };
+type ConvApplication = { title?: string; status?: string; coverLetter?: string };
+type ConvProject = { title?: string };
+
 type Conversation = {
   _id: string;
   applicationId?: string;
   itemId?: string;
   itemType?: string;
   updatedAt?: string;
+  lastMessageAt?: string;
+  lastMessageText?: string;
+  employer?: ConvEmployer | null;
+  application?: ConvApplication | null;
+  project?: ConvProject | null;
 };
 
 type ChatMessage = {
   _id: string;
+  senderId?: string;
   senderRole?: string;
   text: string;
   createdAt: string;
 };
+
+function fmt(date?: string) {
+  if (!date) return '';
+  const d = new Date(date);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
 
 export default function StudentMessagesClient() {
   const searchParams = useSearchParams();
@@ -28,26 +46,30 @@ export default function StudentMessagesClient() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [convLoading, setConvLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   async function loadConversations() {
-    const res = await fetch('/api/conversations', { credentials: 'include' });
-    const payload = await res.json();
-    const rows = payload?.data || [];
-    setConversations(rows);
-    const nextId = requestedConversationId || rows[0]?._id || '';
-    setActiveId(nextId);
+    setConvLoading(true);
+    try {
+      const res = await fetch('/api/conversations', { credentials: 'include' });
+      const payload = await res.json();
+      const rows: Conversation[] = payload?.data || [];
+      setConversations(rows);
+      const nextId = requestedConversationId || rows[0]?._id || '';
+      setActiveId(nextId);
+    } finally {
+      setConvLoading(false);
+    }
   }
 
   async function loadMessages(conversationId: string) {
-    if (!conversationId) {
-      setMessages([]);
-      return;
-    }
+    if (!conversationId) { setMessages([]); return; }
     setLoading(true);
     try {
       const res = await fetch(`/api/messages?conversationId=${encodeURIComponent(conversationId)}`, { credentials: 'include' });
@@ -58,91 +80,184 @@ export default function StudentMessagesClient() {
     }
   }
 
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  useEffect(() => {
-    if (!activeId) return;
-    loadMessages(activeId);
-  }, [activeId]);
+  useEffect(() => { loadConversations(); }, []);
+  useEffect(() => { if (activeId) loadMessages(activeId); }, [activeId]);
 
   async function send() {
     if (!activeId || !text.trim()) return;
     setSending(true);
+    const optimistic: ChatMessage = { _id: `opt-${Date.now()}`, senderRole: 'STUDENT', text: text.trim(), createdAt: new Date().toISOString() };
+    setMessages((prev) => [...prev, optimistic]);
+    const sent = text.trim();
+    setText('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     try {
       await fetch('/api/messages', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId: activeId, text: text.trim() }),
+        body: JSON.stringify({ conversationId: activeId, text: sent }),
       });
-      setText('');
       await loadMessages(activeId);
     } finally {
       setSending(false);
     }
   }
 
-  const activeConversation = useMemo(
-    () => conversations.find((x) => x._id === activeId) || null,
-    [conversations, activeId]
-  );
+  const activeConv = useMemo(() => conversations.find((x) => x._id === activeId) || null, [conversations, activeId]);
+
+  const displayName = (c: Conversation) =>
+    c.employer?.companyName || c.employer?.fullName || 'Company';
+
+  const displayTitle = (c: Conversation) =>
+    c.project?.title || c.application?.title || '';
 
   return (
-    <div className="grid h-[calc(100vh-160px)] min-h-[620px] gap-4 lg:grid-cols-[320px_1fr]">
-      <aside className="card flex flex-col overflow-hidden">
-        <div className="border-b border-slate-200 px-4 py-4">
-          <h1 className="text-lg font-semibold text-slate-900">Messages</h1>
-          <p className="text-sm text-slate-500">Conversations linked to your applications</p>
-        </div>
-        <div className="flex-1 space-y-2 overflow-y-auto p-3">
-          {conversations.map((c) => (
-            <button
-              key={c._id}
-              onClick={() => setActiveId(c._id)}
-              className={`w-full rounded-2xl border p-3 text-left transition ${activeId === c._id ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-            >
-              <p className="font-semibold text-slate-900">Application {c.applicationId?.slice(-6)}</p>
-              <p className="mt-1 text-xs text-slate-600">{c.itemType || 'item'} · {c.itemId || 'n/a'}</p>
-            </button>
-          ))}
-          {!conversations.length && <p className="px-2 text-sm text-slate-500">No conversations yet.</p>}
-        </div>
-      </aside>
+    <div className="flex flex-col py-2">
+      <div className="mb-4">
+        <p className="text-sm font-medium text-blue-700">Student workspace</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Messages</h1>
+        <p className="text-sm text-slate-500">Conversations with companies about your applications</p>
+      </div>
 
-      <section className="card flex flex-col overflow-hidden">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <p className="font-semibold text-slate-900">{activeConversation ? `Conversation ${activeConversation._id.slice(-6)}` : 'Select conversation'}</p>
-          {activeConversation && <p className="text-sm text-slate-500">{activeConversation.itemType} · {activeConversation.itemId}</p>}
-        </div>
-
-        <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/70 p-5">
-          {loading ? <p className="text-sm text-slate-500">Loading messages...</p> : messages.map((msg) => (
-            <div key={msg._id} className={msg.senderRole === 'STUDENT' ? 'ml-auto max-w-[80%]' : 'max-w-[80%]'}>
-              <div className={`rounded-2xl px-3 py-2 text-sm ${msg.senderRole === 'STUDENT' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700'}`}>
-                {msg.text}
-              </div>
-              <p className={`mt-1 text-xs text-slate-400 ${msg.senderRole === 'STUDENT' ? 'text-right' : ''}`}>{new Date(msg.createdAt).toLocaleString()}</p>
-            </div>
-          ))}
-          {!loading && !messages.length && <p className="text-center py-8 text-sm text-slate-500">No messages yet. Start the conversation!</p>}
-          <div ref={bottomRef} />
-        </div>
-
-        <div className="border-t border-slate-200 bg-white px-5 py-4">
-          <div className="flex items-center gap-2">
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder="Write a message..."
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
-            />
-            <button type="button" onClick={send} disabled={!activeId || sending} className="btn-primary disabled:opacity-50">Send</button>
+      <div className="grid h-[calc(100vh-220px)] min-h-[560px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[300px_1fr]">
+        {/* Sidebar */}
+        <aside className="flex flex-col border-r border-slate-200">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-700">Conversations</p>
           </div>
-        </div>
-      </section>
+          <div className="flex-1 overflow-y-auto">
+            {convLoading && (
+              <div className="space-y-2 p-3">
+                {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100" />)}
+              </div>
+            )}
+            {!convLoading && conversations.length === 0 && (
+              <div className="px-4 py-10 text-center">
+                <p className="text-2xl">💬</p>
+                <p className="mt-2 text-sm font-medium text-slate-700">No conversations yet</p>
+                <p className="mt-1 text-xs text-slate-500">Apply to projects to start chatting with companies.</p>
+              </div>
+            )}
+            {conversations.map((c) => (
+              <button
+                key={c._id}
+                onClick={() => setActiveId(c._id)}
+                className={`w-full border-b border-slate-100 px-4 py-3 text-left transition last:border-0 hover:bg-slate-50 ${activeId === c._id ? 'bg-blue-50' : ''}`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <p className={`truncate text-sm font-semibold ${activeId === c._id ? 'text-blue-700' : 'text-slate-900'}`}>
+                    {displayName(c)}
+                  </p>
+                  <span className="shrink-0 text-xs text-slate-400">{fmt(c.lastMessageAt || c.updatedAt)}</span>
+                </div>
+                {displayTitle(c) && (
+                  <p className="mt-0.5 truncate text-xs text-blue-600">📁 {displayTitle(c)}</p>
+                )}
+                {c.lastMessageText && (
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{c.lastMessageText}</p>
+                )}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* Chat */}
+        <section className="flex flex-col overflow-hidden">
+          {!activeConv ? (
+            <div className="flex flex-1 items-center justify-center p-8 text-center">
+              <div>
+                <p className="text-4xl">👈</p>
+                <p className="mt-3 font-semibold text-slate-700">Select a conversation</p>
+                <p className="mt-1 text-sm text-slate-500">Pick a company on the left to view messages</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="border-b border-slate-200 bg-white px-5 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-slate-900">{displayName(activeConv)}</p>
+                    <p className="text-sm text-slate-500">
+                      {displayTitle(activeConv) || 'Direct message'}
+                      {activeConv.application?.status && (
+                        <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          activeConv.application.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
+                          activeConv.application.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          {activeConv.application.status}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/50 p-5">
+                {loading && (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => <div key={i} className={`h-10 animate-pulse rounded-2xl bg-slate-200 ${i % 2 === 0 ? 'ml-auto w-2/3' : 'w-2/3'}`} />)}
+                  </div>
+                )}
+                {!loading && messages.map((msg) => {
+                  const isMe = msg.senderRole === 'STUDENT';
+                  return (
+                    <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[75%] ${isMe ? '' : ''}`}>
+                        <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          isMe
+                            ? 'rounded-br-sm bg-blue-600 text-white'
+                            : 'rounded-bl-sm bg-white border border-slate-200 text-slate-700 shadow-sm'
+                        }`}>
+                          {msg.text}
+                        </div>
+                        <p className={`mt-1 text-xs text-slate-400 ${isMe ? 'text-right' : ''}`}>
+                          {fmt(msg.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {!loading && messages.length === 0 && (
+                  <div className="py-12 text-center">
+                    <p className="text-3xl">💬</p>
+                    <p className="mt-2 text-sm font-medium text-slate-700">Start the conversation</p>
+                    <p className="mt-1 text-xs text-slate-500">Your cover letter was sent. You can follow up here.</p>
+                  </div>
+                )}
+                <div ref={bottomRef} />
+              </div>
+
+              <div className="border-t border-slate-200 bg-white px-5 py-4">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    ref={textareaRef}
+                    value={text}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+                    placeholder="Write a message... (Enter to send)"
+                    rows={1}
+                    className="max-h-28 w-full resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={send}
+                    disabled={!text.trim() || sending}
+                    className="btn-primary shrink-0 disabled:opacity-50"
+                  >
+                    {sending ? '...' : 'Send'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

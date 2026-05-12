@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import Application from '@/models/Application';
-import Conversation from '@/models/Conversation';
 import Message from '@/models/Message';
 import ProjectModel from '@/models/Project';
 import { dbConnect } from '@/lib/mongodb';
 import { handleApi, ok } from '@/lib/api';
 import { requireAuth } from '@/lib/auth';
 import { findProjectOrVacancyById } from '@/lib/projects/findProjectOrVacancyById';
+import { getOrCreateConversation, touchConversation } from '@/lib/conversations';
 import mongoose from 'mongoose';
+import Conversation from '@/models/Conversation';
 
 const DEFAULT_COVER_LETTER = 'Hello, I am interested in this opportunity and would like to apply through UniWork.';
 
@@ -51,9 +52,7 @@ export async function POST(req: Request) {
     const coverLetter = normalizeCoverLetter(payload.coverLetter);
 
     const itemId = payload.itemId || payload.projectId;
-    if (!itemId) {
-      throw new Error('itemId or projectId is required');
-    }
+    if (!itemId) throw new Error('itemId or projectId is required');
 
     const found = await findProjectOrVacancyById(itemId);
     const doc = found?.doc || null;
@@ -64,6 +63,22 @@ export async function POST(req: Request) {
     const category = doc?.category || '';
     const source = payload.source || doc?.source || '';
     const itemMongoId = mongoose.Types.ObjectId.isValid(String(doc?._id || '')) ? doc?._id : null;
+
+    // Prevent duplicate applications
+    const existingApp = await Application.findOne({
+      studentId: user.userId,
+      $or: [
+        { itemMongoId: itemMongoId || undefined },
+        { itemId },
+        { projectId: itemId },
+      ],
+    }).lean();
+
+    if (existingApp) {
+      const existingConv = await Conversation.findOne({ applicationId: (existingApp as any)._id }).lean();
+      const plain = existingApp as any;
+      return ok({ ...plain, conversationId: existingConv ? String((existingConv as any)._id) : null, alreadyApplied: true });
+    }
 
     const app = await Application.create({
       studentId: user.userId,
@@ -83,22 +98,37 @@ export async function POST(req: Request) {
       status: 'SENT',
     });
 
-    // Resolve employerId from the Project model so clients can see the conversation
-    let employerId: mongoose.Types.ObjectId | null = null;
+    // Resolve employerId from the Project model
+    let employerId: string | null = null;
     if (itemMongoId) {
       const project = await ProjectModel.findById(itemMongoId).select('clientId').lean() as { clientId?: any } | null;
       if (project?.clientId) {
-        employerId = project.clientId;
+        employerId = String(project.clientId);
       }
     }
 
-    const conversation = await Conversation.create({
-      applicationId: app._id,
-      studentId: user.userId,
-      employerId,
-      itemId,
-      itemType: inferredType,
-    });
+    let conversation;
+    if (employerId) {
+      conversation = await getOrCreateConversation({
+        studentId: user.userId,
+        employerId,
+        projectMongoId: itemMongoId ? String(itemMongoId) : null,
+        applicationId: String(app._id),
+      });
+      // Ensure applicationId is set on the conversation
+      if (!conversation.applicationId) {
+        await conversation.updateOne({ applicationId: app._id });
+      }
+    } else {
+      // Fallback for legacy items without a project model
+      conversation = await Conversation.create({
+        applicationId: app._id,
+        studentId: user.userId,
+        employerId: null,
+        itemId,
+        itemType: inferredType,
+      });
+    }
 
     await Message.create({
       conversationId: conversation._id,
@@ -110,7 +140,9 @@ export async function POST(req: Request) {
       text: coverLetter,
     });
 
+    await touchConversation(conversation._id, coverLetter);
+
     const plain = app.toObject();
-    return ok({ ...plain, conversationId: conversation._id }, 201);
+    return ok({ ...plain, conversationId: String(conversation._id) }, 201);
   });
 }

@@ -4,6 +4,11 @@ const ClientProfileSchema = new Schema({
   companyName: String,
   companyDescription: String,
   website: String,
-  industry: String
+  industry: String,
+  city: String,
+  companySize: String,
+  contactEmail: String,
+  linkedinUrl: String,
+  typicalProjects: [String],
 }, { timestamps: true });
 export default models.ClientProfile || model('ClientProfile', ClientProfileSchema);

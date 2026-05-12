@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 
 type VacancySection = {
   requirements_items?: string[];
@@ -43,6 +44,8 @@ export default function ProjectDetails() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [authRole, setAuthRole] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [proposedPrice, setProposedPrice] = useState('');
@@ -52,9 +55,28 @@ export default function ProjectDetails() {
   const id = params?.id ?? '';
 
   useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => r.ok ? r.json() : null)
+      .then((p) => {
+        const role = p?.data?.role || null;
+        setAuthRole(role);
+        if (role === 'STUDENT' && id) {
+          fetch('/api/applications', { credentials: 'include' })
+            .then((r) => r.json())
+            .then((payload) => {
+              const apps: any[] = payload?.data || [];
+              const applied = apps.some((a) => String(a.itemId) === id || String(a.projectId) === id);
+              setAlreadyApplied(applied);
+            })
+            .catch(() => {});
+        }
+      });
+  }, [id]);
+
+  useEffect(() => {
     if (!id) return;
     setError('');
-    fetch(`/api/projects/${id}`)
+    fetch(`/api/projects/${id}`, { credentials: 'include' })
       .then((r) => r.json())
       .then((payload) => {
         if (!payload?.success) throw new Error(payload?.error || 'Failed to load details');
@@ -76,6 +98,7 @@ export default function ProjectDetails() {
     try {
       const res = await fetch('/api/applications', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           itemId,
@@ -92,6 +115,7 @@ export default function ProjectDetails() {
       const payload = await res.json();
       setMessage(res.ok ? 'Application sent successfully.' : payload?.error?.message || payload?.error || 'Failed to apply.');
       if (res.ok) {
+        setAlreadyApplied(true);
         setShowApplyModal(false);
         setCoverLetter('');
         setProposedPrice('');
@@ -166,7 +190,17 @@ export default function ProjectDetails() {
             <p className="mt-2 text-sm text-slate-600">{companyName} · {city}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setShowApplyModal(true)} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Apply on UniWork</button>
+            {authRole === 'STUDENT' ? (
+              alreadyApplied ? (
+                <span className="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+                  Applied
+                </span>
+              ) : (
+                <button type="button" onClick={() => setShowApplyModal(true)} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Apply on UniWork</button>
+              )
+            ) : authRole === null ? (
+              <Link href="/signin" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Sign in to apply</Link>
+            ) : null}
             <button type="button" onClick={contact} className="rounded-lg border px-4 py-2 text-sm font-semibold">Contact</button>
             <button type="button" onClick={saveFavorite} className="rounded-lg border px-4 py-2 text-sm font-semibold">Save</button>
             {item?.alternate_url && <a href={item.alternate_url} target="_blank" rel="noreferrer" className="rounded-lg border px-4 py-2 text-sm font-semibold">Open original vacancy</a>}

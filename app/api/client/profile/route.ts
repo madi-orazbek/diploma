@@ -19,10 +19,31 @@ export async function PUT(req: Request) {
     const user = requireAuth(['CLIENT', 'ADMIN']);
     await dbConnect();
     const body = await req.json();
-    const { companyName, companyDescription, website, industry } = body;
+    const {
+      companyName,
+      companyDescription,
+      website,
+      industry,
+      city,
+      companySize,
+      contactEmail,
+      linkedinUrl,
+      typicalProjects,
+    } = body;
+
     const profile = await ClientProfile.findOneAndUpdate(
       { userId: user.userId },
-      { companyName, companyDescription, website, industry },
+      {
+        companyName,
+        companyDescription,
+        website,
+        industry,
+        city,
+        companySize,
+        contactEmail,
+        linkedinUrl,
+        typicalProjects: Array.isArray(typicalProjects) ? typicalProjects : [],
+      },
       { upsert: true, new: true, runValidators: false }
     ).lean();
     return ok(profile);

@@ -4,6 +4,7 @@ import Conversation from '@/models/Conversation';
 import Application from '@/models/Application';
 import ProjectModel from '@/models/Project';
 import User from '@/models/User';
+import ClientProfile from '@/models/ClientProfile';
 import { dbConnect } from '@/lib/mongodb';
 import { handleApi, ok } from '@/lib/api';
 import { requireAuth } from '@/lib/auth';
@@ -22,13 +23,62 @@ export async function GET(req: Request) {
     if (user.role === 'STUDENT') {
       const filter: any = { studentId: user.userId };
       if (applicationId) filter.applicationId = applicationId;
-      rows = await Conversation.find(filter).sort({ updatedAt: -1 }).lean();
-    } else if (user.role === 'CLIENT') {
-      // 1. Find all this client's projects
-      const clientProjects = await ProjectModel.find({ clientId: user.userId }).select('_id').lean() as any[];
-      const projectIds = clientProjects.map((p: any) => p._id);
+      rows = await Conversation.find(filter)
+        .sort({ lastMessageAt: -1, updatedAt: -1 })
+        .lean();
 
-      // 2. Find applications for those projects
+      // Deduplicate by (employerId + projectMongoId) — keep only the most recent
+      const seen = new Set<string>();
+      rows = rows.filter((r: any) => {
+        const key = `${String(r.employerId || '')}_${String(r.projectMongoId || '')}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Enrich with client/company info
+      if (rows.length > 0) {
+        const employerIds = [...new Set(rows.map((r: any) => String(r.employerId)).filter(Boolean))];
+        const [employers, clientProfiles, appDocs, projects] = await Promise.all([
+          User.find({ _id: { $in: employerIds } }).select('fullName email').lean() as any,
+          ClientProfile.find({ userId: { $in: employerIds } }).select('userId companyName').lean() as any,
+          Application.find({ _id: { $in: rows.map((r: any) => r.applicationId).filter(Boolean) } })
+            .select('title status coverLetter')
+            .lean() as any,
+          ProjectModel.find({ _id: { $in: rows.map((r: any) => r.projectMongoId).filter(Boolean) } })
+            .select('title')
+            .lean() as any,
+        ]);
+
+        const employerMap = new Map((employers as any[]).map((e: any) => [String(e._id), e]));
+        const clientProfileMap = new Map((clientProfiles as any[]).map((p: any) => [String(p.userId), p]));
+        const appMap = new Map((appDocs as any[]).map((a: any) => [String(a._id), a]));
+        const projectMap = new Map((projects as any[]).map((p: any) => [String(p._id), p]));
+
+        rows = rows.map((r: any) => {
+          const employer = employerMap.get(String(r.employerId));
+          const cp = clientProfileMap.get(String(r.employerId));
+          const app = appMap.get(String(r.applicationId));
+          const project = projectMap.get(String(r.projectMongoId));
+          return {
+            ...r,
+            employer: employer ? {
+              fullName: employer.fullName,
+              companyName: cp?.companyName || employer.fullName,
+            } : null,
+            application: app || null,
+            project: project ? { title: project.title } : null,
+          };
+        });
+      }
+
+    } else if (user.role === 'CLIENT') {
+      // Find all this client's projects
+      const clientProjects = await ProjectModel.find({ clientId: user.userId }).select('_id title').lean() as any[];
+      const projectIds = clientProjects.map((p: any) => p._id);
+      const projectTitleMap = new Map((clientProjects as any[]).map((p: any) => [String(p._id), p.title]));
+
+      // Find applications for those projects
       const clientApps = await Application.find({
         $or: [
           { itemMongoId: { $in: projectIds } },
@@ -37,7 +87,6 @@ export async function GET(req: Request) {
       }).select('_id').lean() as any[];
       const appIds = clientApps.map((a: any) => a._id);
 
-      // 3. Find conversations by employerId OR by applicationId (covers old data)
       const convFilter: any = {
         $or: [
           { employerId: new mongoose.Types.ObjectId(user.userId) },
@@ -46,18 +95,19 @@ export async function GET(req: Request) {
       };
       if (applicationId) convFilter.applicationId = applicationId;
 
-      rows = await Conversation.find(convFilter).sort({ updatedAt: -1 }).lean();
+      rows = await Conversation.find(convFilter)
+        .sort({ lastMessageAt: -1, updatedAt: -1 })
+        .lean();
 
-      // Deduplicate (a conversation might match both conditions)
+      // Deduplicate by (studentId + projectMongoId)
       const seen = new Set<string>();
       rows = rows.filter((r: any) => {
-        const id = String(r._id);
-        if (seen.has(id)) return false;
-        seen.add(id);
+        const key = `${String(r.studentId || '')}_${String(r.projectMongoId || r.applicationId || '')}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
 
-      // Enrich with student info and application details
       if (rows.length > 0) {
         const studentIds = [...new Set(rows.map((r: any) => String(r.studentId)).filter(Boolean))];
         const students = await User.find({ _id: { $in: studentIds } }).select('fullName email university').lean() as any[];
@@ -71,11 +121,13 @@ export async function GET(req: Request) {
           ...r,
           student: studentMap.get(String(r.studentId)) || null,
           application: appMap.get(String(r.applicationId)) || null,
+          project: r.projectMongoId
+            ? { title: projectTitleMap.get(String(r.projectMongoId)) || null }
+            : null,
         }));
       }
     } else {
-      // ADMIN sees all
-      rows = await Conversation.find({}).sort({ updatedAt: -1 }).limit(100).lean();
+      rows = await Conversation.find({}).sort({ lastMessageAt: -1, updatedAt: -1 }).limit(100).lean();
     }
 
     return ok(rows);
