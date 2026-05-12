@@ -20,6 +20,7 @@ export default function AuthPageClient({ initialTab }: AuthPageClientProps) {
   const [success, setSuccess] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [captchaToken, setCaptchaToken] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'CLIENT' | ''>('');
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 
   useEffect(() => {
@@ -150,23 +151,30 @@ export default function AuthPageClient({ initialTab }: AuthPageClientProps) {
             </form>
           ) : (
             <form action={handleSignUp} className="mt-6 space-y-3">
+              <select
+                name="role"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value as 'STUDENT' | 'CLIENT' | '')}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              >
+                <option value="" disabled>Select role</option>
+                <option value="STUDENT">Student — looking for freelance projects</option>
+                <option value="CLIENT">Client — posting projects for students</option>
+              </select>
               <div className="grid gap-3 md:grid-cols-2">
                 <input name="firstName" placeholder="First name" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" />
                 <input name="lastName" placeholder="Last name" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" />
               </div>
-              <select name="university" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" defaultValue="">
-                <option value="" disabled>Select your university</option>
-                {KAZAKHSTAN_UNIVERSITIES.map((university) => (
-                  <option key={university} value={university}>{university}</option>
-                ))}
-              </select>
+              {selectedRole !== 'CLIENT' && (
+                <select name="university" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" defaultValue="">
+                  <option value="" disabled>Select your university</option>
+                  {KAZAKHSTAN_UNIVERSITIES.map((university) => (
+                    <option key={university} value={university}>{university}</option>
+                  ))}
+                </select>
+              )}
               <input name="email" placeholder="Email" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" />
               <input name="password" type="password" placeholder="Password (min 8, letters and numbers)" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" />
-              <select name="role" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" defaultValue="">
-                <option value="" disabled>Select role</option>
-                <option value="STUDENT">Student</option>
-                <option value="CLIENT">Client</option>
-              </select>
 
               {turnstileSiteKey ? (
                 <>

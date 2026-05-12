@@ -68,6 +68,8 @@ export function Navbar() {
       ['Dashboard', '/client/dashboard'],
       ['My Projects', '/client/projects'],
       ['Applicants', '/client/applicants'],
+      ['Messages', '/client/messages'],
+      ['Find Students', '/client/students'],
       ['Profile', '/client/profile'],
     ] as const;
     return [

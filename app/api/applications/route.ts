@@ -2,6 +2,7 @@ import { z } from 'zod';
 import Application from '@/models/Application';
 import Conversation from '@/models/Conversation';
 import Message from '@/models/Message';
+import ProjectModel from '@/models/Project';
 import { dbConnect } from '@/lib/mongodb';
 import { handleApi, ok } from '@/lib/api';
 import { requireAuth } from '@/lib/auth';
@@ -82,10 +83,19 @@ export async function POST(req: Request) {
       status: 'SENT',
     });
 
+    // Resolve employerId from the Project model so clients can see the conversation
+    let employerId: mongoose.Types.ObjectId | null = null;
+    if (itemMongoId) {
+      const project = await ProjectModel.findById(itemMongoId).select('clientId').lean() as { clientId?: any } | null;
+      if (project?.clientId) {
+        employerId = project.clientId;
+      }
+    }
+
     const conversation = await Conversation.create({
       applicationId: app._id,
       studentId: user.userId,
-      employerId: null,
+      employerId,
       itemId,
       itemType: inferredType,
     });

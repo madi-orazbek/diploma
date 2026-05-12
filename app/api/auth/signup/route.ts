@@ -31,9 +31,7 @@ const schema = z.object({
     required_error: 'Select a role',
     invalid_type_error: 'Select a role'
   }),
-  university: z.string({ required_error: 'Select your university' }).trim()
-    .min(1, 'Select your university')
-    .refine((v) => (KAZAKHSTAN_UNIVERSITIES as readonly string[]).includes(v), 'Select your university'),
+  university: z.string().trim().optional().default(''),
   captchaToken: z.string({ required_error: 'Please complete the CAPTCHA' })
     .min(1, 'Please complete the CAPTCHA')
 });
@@ -73,6 +71,14 @@ export async function POST(req: Request) {
     }
     const body = parsed.data;
     const fullName = `${body.firstName} ${body.lastName}`.trim();
+
+    if (body.role === 'STUDENT' && !body.university) {
+      return NextResponse.json(
+        { success: false, error: 'Select your university', field: 'university' },
+        { status: 400 }
+      );
+    }
+
     const isCaptchaValid = await verifyCaptcha(body.captchaToken, req.headers.get('x-forwarded-for'));
     if (!isCaptchaValid) {
       return NextResponse.json(

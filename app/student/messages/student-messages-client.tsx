@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 type Conversation = {
@@ -28,9 +28,14 @@ export default function StudentMessagesClient() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   async function loadConversations() {
-    const res = await fetch('/api/conversations');
+    const res = await fetch('/api/conversations', { credentials: 'include' });
     const payload = await res.json();
     const rows = payload?.data || [];
     setConversations(rows);
@@ -45,7 +50,7 @@ export default function StudentMessagesClient() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/messages?conversationId=${encodeURIComponent(conversationId)}`);
+      const res = await fetch(`/api/messages?conversationId=${encodeURIComponent(conversationId)}`, { credentials: 'include' });
       const payload = await res.json();
       setMessages(payload?.data || []);
     } finally {
@@ -68,6 +73,7 @@ export default function StudentMessagesClient() {
     try {
       await fetch('/api/messages', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conversationId: activeId, text: text.trim() }),
       });
@@ -120,7 +126,8 @@ export default function StudentMessagesClient() {
               <p className={`mt-1 text-xs text-slate-400 ${msg.senderRole === 'STUDENT' ? 'text-right' : ''}`}>{new Date(msg.createdAt).toLocaleString()}</p>
             </div>
           ))}
-          {!loading && !messages.length && <p className="text-sm text-slate-500">No messages yet.</p>}
+          {!loading && !messages.length && <p className="text-center py-8 text-sm text-slate-500">No messages yet. Start the conversation!</p>}
+          <div ref={bottomRef} />
         </div>
 
         <div className="border-t border-slate-200 bg-white px-5 py-4">
@@ -128,6 +135,7 @@ export default function StudentMessagesClient() {
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder="Write a message..."
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
             />

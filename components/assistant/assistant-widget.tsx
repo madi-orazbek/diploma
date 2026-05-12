@@ -118,6 +118,7 @@ export function AssistantWidget() {
     try {
       const res = await fetch(apiEndpoint, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: trimmed }),
       });
