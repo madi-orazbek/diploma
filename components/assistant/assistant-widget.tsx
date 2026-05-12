@@ -73,17 +73,19 @@ export function AssistantWidget() {
 
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' })
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => (r.ok ? r.json() : Promise.resolve(null)))
       .then((payload) => {
         const r: Role = payload?.data?.role ?? null;
         setRole(r);
         const emptyText = r === 'CLIENT' ? CLIENT_EMPTY : STUDENT_EMPTY;
         setHistory([{ id: uid(), role: 'assistant', text: emptyText }]);
+        setRoleLoaded(true);
       })
       .catch(() => {
+        // Network error — show student view, do not block the widget
         setHistory([{ id: uid(), role: 'assistant', text: STUDENT_EMPTY }]);
-      })
-      .finally(() => setRoleLoaded(true));
+        setRoleLoaded(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -101,11 +103,14 @@ export function AssistantWidget() {
     const trimmed = question.trim();
     if (!trimmed || busy) return;
 
+    // Still loading auth status — wait silently
+    if (!roleLoaded) return;
+
     if (!role) {
       setHistory((prev) => [
         ...prev,
         { id: uid(), role: 'user', text: trimmed },
-        { id: uid(), role: 'assistant', text: 'Please sign in to use the assistant.' },
+        { id: uid(), role: 'assistant', text: 'Please sign in to use the full assistant. You can browse open projects without an account.' },
       ]);
       return;
     }

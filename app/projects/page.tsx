@@ -38,32 +38,47 @@ export default function ProjectsPage() {
     setLoading(true);
     try {
       const qs = new URLSearchParams(form as any).toString();
-      const [projectsRes, recommendRes, favoritesRes] = await Promise.all([
-        fetch(`/api/projects?${qs}`),
-        fetch('/api/recommend', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ top_n: 200 }),
-        }),
-        fetch('/api/favorites').catch(() => null),
+
+      // Load projects and favorites immediately — don't block on slow ML API
+      const [projectsRes, favoritesRes] = await Promise.all([
+        fetch(`/api/projects?${qs}`, { credentials: 'include' }),
+        fetch('/api/favorites', { credentials: 'include' }).catch(() => null),
       ]);
+
       const payload = await projectsRes.json();
-      const recommendPayload = await recommendRes.json();
-      const favoritesPayload = favoritesRes ? await favoritesRes.json() : { data: [] };
-      const recommendations = Array.isArray(recommendPayload?.recommendations)
-        ? recommendPayload.recommendations
-        : Array.isArray(recommendPayload?.data?.recommendations)
-          ? recommendPayload.data.recommendations
-          : [];
-      const matchById = new Map(recommendations.map((x: any) => [String(x.project_id || x.id), Number(x.matchPercent || 0)]));
-      const rowsWithScore = (payload.data || []).map((item: any) => ({
-        ...item,
-        matchPercent: matchById.get(String(item.id)) ?? null,
-      }));
-      setRows(rowsWithScore);
+      const favoritesPayload = favoritesRes ? await favoritesRes.json().catch(() => ({ data: [] })) : { data: [] };
+      const items: any[] = payload.data || [];
+
+      setRows(items);
+      setLoading(false);
+
       const favoriteMap = Object.fromEntries((favoritesPayload?.data || []).map((x: any) => [String(x.itemId), true]));
       setSaved(favoriteMap);
-    } finally {
+
+      // Asynchronously fetch ML recommendations and overlay match scores
+      fetch('/api/recommend', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ top_n: 200 }),
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then((recommendPayload) => {
+          if (!recommendPayload) return;
+          const recommendations = Array.isArray(recommendPayload?.recommendations)
+            ? recommendPayload.recommendations
+            : Array.isArray(recommendPayload?.data?.recommendations)
+              ? recommendPayload.data.recommendations
+              : [];
+          if (!recommendations.length) return;
+          const matchById = new Map(recommendations.map((x: any) => [String(x.project_id || x.id), Number(x.matchPercent || 0)]));
+          setRows((prev) => prev.map((item) => ({
+            ...item,
+            matchPercent: matchById.get(String(item.id)) ?? item.matchPercent ?? null,
+          } as UnifiedProject)));
+        })
+        .catch(() => { /* ML API unavailable — show projects without scores */ });
+    } catch {
       setLoading(false);
     }
   }
