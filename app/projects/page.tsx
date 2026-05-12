@@ -60,7 +60,7 @@ export default function ProjectsPage() {
         ...item,
         matchPercent: matchById.get(String(item.id)) ?? null,
       }));
-      setRows(rowsWithScore.filter((item: any) => Number.isFinite(Number(item.matchPercent))));
+      setRows(rowsWithScore);
       const favoriteMap = Object.fromEntries((favoritesPayload?.data || []).map((x: any) => [String(x.itemId), true]));
       setSaved(favoriteMap);
     } finally {
@@ -188,9 +188,15 @@ export default function ProjectsPage() {
                     </Link>
                     <p className="mt-2 text-sm leading-relaxed text-slate-600 line-clamp-2">{p.description}</p>
                   </div>
-                  <div className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
-                    {Number.isFinite(Number(p.matchPercent)) ? `${Math.round(Number(p.matchPercent))}% match` : p.type}
-                  </div>
+                  {Number.isFinite(Number(p.matchPercent)) && Number(p.matchPercent) > 0 ? (
+                    <div className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${Number(p.matchPercent) >= 75 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : Number(p.matchPercent) >= 50 ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                      {Math.round(Number(p.matchPercent))}% match
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-500">
+                      {p.source === 'client_project' ? 'Client project' : p.type === 'vacancy' ? 'Vacancy' : 'Project'}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">

@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
 import { dbConnect } from '@/lib/mongodb';
+import ProjectModel from '@/models/Project';
 
 export type UnifiedItem = {
   id: string;
@@ -136,6 +137,36 @@ export function mapProjectToUnifiedItem(project: Record<string, any>): UnifiedIt
     status: 'OPEN',
     createdAt: null,
     source: String(project?.source || 'generated_from_vacancy'),
+    raw: project,
+  };
+}
+
+export function mapClientProjectToUnifiedItem(project: Record<string, any>): UnifiedItem {
+  const skills = Array.isArray(project?.requiredSkills)
+    ? project.requiredSkills.map((x: unknown) => String(x)).filter(Boolean)
+    : [];
+  const title = String(project?.title || '');
+  const description = String(project?.description || '');
+  const id = String(project?._id || project?.id || '');
+  return {
+    id,
+    type: 'project',
+    clientId: project?.clientId ? String(project.clientId) : null,
+    company: 'Client project',
+    title,
+    description,
+    category: String(project?.category || inferCategoryFromText(title, description, skills)),
+    requiredSkills: skills,
+    skills,
+    budgetMin: Number.isFinite(Number(project?.budgetMin)) ? Number(project.budgetMin) : null,
+    budgetMax: Number.isFinite(Number(project?.budgetMax)) ? Number(project.budgetMax) : null,
+    deadline: project?.deadline ? new Date(project.deadline).toISOString() : null,
+    city: String(project?.city || 'Remote'),
+    employmentType: String(project?.employmentType || 'project'),
+    experienceLevel: String(project?.experienceLevel || 'middle'),
+    status: project?.status === 'OPEN' ? 'OPEN' : 'CLOSED',
+    createdAt: project?.createdAt ? new Date(project.createdAt).toISOString() : null,
+    source: 'client_project',
     raw: project,
   };
 }
@@ -278,12 +309,16 @@ export async function loadUnifiedDatasetFromMongo(): Promise<UnifiedItem[]> {
   const projectsDocs = await readCollectionSafe(db, ['projects']);
   const vacancyCardsDocs = await readCollectionSafe(db, ['vacancyCards', 'vacancy_cards']);
 
+  // Load client-created projects from the Project model (separate from legacy "projects" collection)
+  const clientProjectDocs = await ProjectModel.find({}).lean() as Record<string, any>[];
+
   const normalizedVacancies = [
     ...vacanciesDocs.map(mapVacancyToUnifiedItem),
     ...projectsDocs.filter(looksLikeVacancy).map(mapVacancyToUnifiedItem),
   ];
   const normalizedProjects = projectsDocs.filter((doc) => looksLikeProject(doc) && !looksLikeVacancy(doc)).map(mapProjectToUnifiedItem);
   const normalizedCards = vacancyCardsDocs.map(mapVacancyCardToUnifiedItem);
+  const normalizedClientProjects = clientProjectDocs.map(mapClientProjectToUnifiedItem);
 
   const seen = new Set<string>();
   const unified: UnifiedItem[] = [];
@@ -295,6 +330,12 @@ export async function loadUnifiedDatasetFromMongo(): Promise<UnifiedItem[]> {
     if (seen.has(item.id)) continue;
     unified.push(item);
   }
+  // Client projects use MongoDB ObjectId as id — they won't collide with legacy items
+  for (const item of normalizedClientProjects) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    unified.push(item);
+  }
 
   const dedupedUnified = dedupeUnifiedItems(unified);
 
@@ -302,9 +343,11 @@ export async function loadUnifiedDatasetFromMongo(): Promise<UnifiedItem[]> {
     vacanciesCollection: vacanciesDocs.length,
     projectsCollection: projectsDocs.length,
     vacancyCardsCollection: vacancyCardsDocs.length,
+    clientProjectsCollection: clientProjectDocs.length,
     normalizedVacancies: normalizedVacancies.length,
     normalizedProjects: normalizedProjects.length,
     normalizedCards: normalizedCards.length,
+    normalizedClientProjects: normalizedClientProjects.length,
     unifiedItems: unified.length,
     dedupedUnifiedItems: dedupedUnified.length,
   });

@@ -74,14 +74,17 @@ function normalizeList(value: unknown): string[] {
 function parseIntent(input: string): AssistantIntent {
   const text = input.toLowerCase();
   if (text.includes('why') && (text.includes('recommend') || text.includes('match'))) return 'why_recommended';
-  if (text.includes('improve my profile') || text.includes('make my profile stronger')) return 'improve_profile';
-  if (text.includes('skills') && (text.includes('missing') || text.includes('add') || text.includes('learn'))) return 'skills_gap';
+  if (text.includes('improve') && text.includes('profile')) return 'improve_profile';
+  if (text.includes('make my profile stronger') || text.includes('update my profile')) return 'improve_profile';
+  if ((text.includes('skill') || text.includes('skills')) && (text.includes('missing') || text.includes('add') || text.includes('learn') || text.includes('gap') || text.includes('suggest'))) return 'skills_gap';
+  if (text.includes('what should i learn') || text.includes('learn next') || text.includes('roadmap')) return 'learn_next';
   if (text.includes('backend')) return 'show_backend';
   if (text.includes('frontend')) return 'show_frontend';
-  if (text.includes('astana') || text.includes('almaty') || text.includes('city')) return 'jobs_in_city';
-  if (text.includes('apply')) return 'help_apply';
-  if (text.includes('learn next') || text.includes('roadmap')) return 'learn_next';
-  if (text.includes('find') || text.includes('job') || text.includes('recommend')) return 'find_jobs';
+  if (text.includes('astana') || text.includes('almaty') || text.includes('shymkent') || (text.includes('city') && (text.includes('job') || text.includes('work')))) return 'jobs_in_city';
+  if ((text.includes('apply') || text.includes('cover letter') || text.includes('application')) && (text.includes('help') || text.includes('how') || text.includes('write'))) return 'help_apply';
+  if ((text.includes('find') || text.includes('show') || text.includes('get')) && (text.includes('job') || text.includes('project') || text.includes('work') || text.includes('vacancy'))) return 'find_jobs';
+  if (text.includes('recommend') && !text.includes('why')) return 'find_jobs';
+  if (text.includes('job') || text.includes('vacancy') || text.includes('project')) return 'find_jobs';
   return 'general';
 }
 
@@ -274,13 +277,18 @@ function buildSuggestedAbout(profile: any) {
   return `I am a ${level} candidate ${city}, focused on delivering reliable products with ${skills || 'modern web technologies'}. I enjoy solving real business problems, collaborating with teams, and continuously improving through practical project work.`;
 }
 
+const JOB_INTENTS: AssistantIntent[] = ['find_jobs', 'why_recommended', 'show_backend', 'show_frontend', 'jobs_in_city', 'help_apply', 'skills_gap', 'learn_next', 'improve_profile'];
+
 export async function runCareerAssistant(message: string, userId: string): Promise<AssistantReply> {
   const profileRaw = await StudentProfile.findOne({ userId }).lean();
   const profileDoc = (Array.isArray(profileRaw) ? profileRaw[0] : profileRaw) as Record<string, unknown> | null;
   const profile = profileDoc || {};
   const intent = parseIntent(message);
-  const recommendations = await fetchRecommendations(profile, message);
-  const filtered = filterByIntent(recommendations, intent, message, String(profile.city || '')).slice(0, 4);
+
+  // Only fetch recommendations when the intent actually needs jobs
+  const needsJobs = JOB_INTENTS.includes(intent);
+  const recommendations = needsJobs ? await fetchRecommendations(profile, message) : [];
+  const filtered = needsJobs ? filterByIntent(recommendations, intent, message, String(profile.city || '')).slice(0, 4) : [];
 
   const jobs = filtered.map((row: any) => {
     const explanation = buildExplanation(profile, row);
@@ -356,10 +364,63 @@ export async function runCareerAssistant(message: string, userId: string): Promi
     };
   }
 
+  // General intent: answer conversationally without dumping job listings
+  if (intent === 'general') {
+    const text = message.toLowerCase().trim();
+
+    // Greetings
+    if (/^(hi|hello|hey|sup|hiya|greetings|good morning|good afternoon|good evening)[!.?\s]*$/.test(text)) {
+      return {
+        reply: "Hi! I'm your AI career assistant on UniWork. I can help you find matched projects, explain why something was recommended, improve your profile, or suggest what to learn next. What would you like to do?",
+        jobs: [],
+        quickActions: DEFAULT_QUICK_ACTIONS,
+        profileTips: [],
+      };
+    }
+
+    // Thank you / acknowledgements
+    if (/^(thanks|thank you|thx|ty|great|awesome|perfect|got it|ok|okay|cool|nice|sounds good)[!.?\s]*$/.test(text)) {
+      return {
+        reply: "You're welcome! Let me know if you need anything else — finding jobs, improving your profile, or learning advice.",
+        jobs: [],
+        quickActions: DEFAULT_QUICK_ACTIONS,
+        profileTips: [],
+      };
+    }
+
+    // Platform / how it works questions
+    if ((text.includes('how') || text.includes('what')) && (text.includes('work') || text.includes('platform') || text.includes('site') || text.includes('this') || text.includes('uniwork'))) {
+      return {
+        reply: "UniWork connects AITU students with real freelance projects using ML matching. Here's how it works:\n\n1. Fill in your profile — skills, experience level, and interests\n2. Our ML model ranks available projects by how well they fit you\n3. Apply to projects that interest you with a cover letter\n4. Clients review applications and select the best match\n\nThe more complete your profile, the more accurate your matches. Want me to check your profile now?",
+        jobs: [],
+        quickActions: DEFAULT_QUICK_ACTIONS,
+        profileTips: [],
+      };
+    }
+
+    // Career / general advice
+    if (text.includes('advice') || text.includes('tip') || text.includes('how to') || text.includes('help me')) {
+      return {
+        reply: "Here are some tips to succeed on UniWork:\n\n• Keep your skills list current — ML matching depends on it\n• Add your GitHub and portfolio to build client trust\n• Write a clear About section highlighting what you've built\n• Apply to projects that match your current level first\n• Smaller first projects help you build reputation fast\n\nWant me to find matched projects for you or review your profile?",
+        jobs: [],
+        quickActions: DEFAULT_QUICK_ACTIONS,
+        profileTips,
+      };
+    }
+
+    // Fallback general: helpful menu without job dump
+    return {
+      reply: "I'm your AI career assistant. Here's what I can do:\n\n• Find freelance projects matched to your skills\n• Explain why a project was recommended to you\n• Help improve your profile for better matches\n• Suggest skills and a learning roadmap\n• Walk you through writing an application\n\nWhat would you like help with?",
+      jobs: [],
+      quickActions: DEFAULT_QUICK_ACTIONS,
+      profileTips: [],
+    };
+  }
+
   return {
     reply: jobs.length
-      ? 'I analyzed your saved profile and recommendation data. Here are the best jobs for you right now, with clear match explanations.'
-      : 'I reviewed your profile. I can help strengthen it and then fetch stronger matches.',
+      ? 'I analyzed your profile and found your best-matched opportunities below.'
+      : 'I reviewed your profile. Complete it with skills, experience level, and a GitHub link to unlock stronger matches.',
     jobs,
     quickActions: DEFAULT_QUICK_ACTIONS,
     profileTips,
