@@ -175,7 +175,7 @@ export default function StudentMessagesClient() {
           ) : (
             <>
               <div className="border-b border-slate-200 bg-white px-5 py-4">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-slate-900">{displayName(activeConv)}</p>
                     <p className="text-sm text-slate-500">
@@ -190,6 +190,24 @@ export default function StudentMessagesClient() {
                         </span>
                       )}
                     </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {(activeConv as any).employerId && (
+                      <a
+                        href={`/companies/${(activeConv as any).employerId}`}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        View company
+                      </a>
+                    )}
+                    {activeConv.itemId && (
+                      <a
+                        href={`/projects/${activeConv.itemId}`}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        View project
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

@@ -34,27 +34,29 @@ type ChatItem = {
 };
 
 const STUDENT_QUICK_ACTIONS = [
-  'Find jobs for me',
-  'Explain my top match',
+  'Find best projects for me',
+  'Why is this project recommended?',
   'Improve my profile',
-  'Suggest skills to learn',
-  'Show backend jobs',
-  'Show frontend jobs',
-  'Help me apply',
-  'What should I learn next?',
+  'Help me write a cover letter',
+  'What skills should I learn next?',
+  'Show high-match projects',
+  'Show backend projects',
+  'Show frontend projects',
 ];
 
 const CLIENT_QUICK_ACTIONS = [
-  'How to write a good project post',
-  'What skills should I list?',
-  'How does student matching work?',
-  'How to attract quality applicants',
+  'Find best students for my project',
+  'Explain why this student matches',
+  'Improve my project description',
+  'Write an invitation message',
+  'Compare applicants',
+  'How to attract better candidates?',
   'What budget should I set?',
-  'How to evaluate applications',
+  'How does ML matching work?',
 ];
 
-const STUDENT_EMPTY = 'Hi, I\'m your AI career assistant. I can help you find jobs, explain recommendations, and improve your profile.';
-const CLIENT_EMPTY = 'Hi, I\'m your project assistant. I can help you write better project posts, understand ML student matching, and evaluate applicants.';
+const STUDENT_EMPTY = 'Hi! I\'m your AI Career Assistant. I can help you find matching projects, explain recommendations, improve your profile, and write cover letters. What would you like to do?';
+const CLIENT_EMPTY = 'Hi! I\'m your Project Assistant. I can help you find the best student candidates, improve your project posts, write invitation messages, and understand ML matching scores. How can I help?';
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -214,8 +216,23 @@ export function AssistantWidget() {
       {open && (
         <div className="card mb-3 w-[420px] max-w-[calc(100vw-24px)] overflow-hidden">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-sm font-semibold text-slate-900">{title}</p>
-            <p className="text-xs text-slate-500">{subtitle}</p>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{title}</p>
+                <p className="text-xs text-slate-500">{subtitle}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const emptyText = role === 'CLIENT' ? CLIENT_EMPTY : STUDENT_EMPTY;
+                  setHistory([{ id: uid(), role: 'assistant', text: emptyText }]);
+                }}
+                className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-white"
+                title="Clear chat"
+              >
+                Clear
+              </button>
+            </div>
           </div>
 
           <div ref={viewportRef} className="max-h-[60vh] space-y-3 overflow-y-auto px-4 py-3">

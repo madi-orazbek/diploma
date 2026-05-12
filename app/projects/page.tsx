@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n/I18nContext';
 
 type UnifiedProject = {
   id: string;
@@ -25,7 +26,10 @@ type ApplyState = 'idle' | 'modal' | 'submitting' | 'applied' | 'error';
 
 const DEFAULT_COVER = 'Hello, I am interested in this opportunity and would like to apply through UniWork.';
 
+const POPULAR_CHIPS = ['Backend', 'Frontend', 'Python', 'React', 'Data', 'ML', 'Remote', 'Junior'];
+
 export default function ProjectsPage() {
+  const { T } = useI18n();
   const [rows, setRows] = useState<UnifiedProject[]>([]);
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
@@ -36,6 +40,7 @@ export default function ProjectsPage() {
   const [coverLetter, setCoverLetter] = useState(DEFAULT_COVER);
   const [proposedPrice, setProposedPrice] = useState('');
   const [form, setForm] = useState({ q: '', category: '', city: '', experience: '', employment: '', sort: 'newest' });
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
@@ -54,10 +59,11 @@ export default function ProjectsPage() {
       });
   }, []);
 
-  async function load() {
+  async function load(overrideForm?: typeof form) {
     setLoading(true);
     try {
-      const qs = new URLSearchParams(form as any).toString();
+      const f = overrideForm || form;
+      const qs = new URLSearchParams(Object.fromEntries(Object.entries(f).filter(([, v]) => v))).toString();
       const [projectsRes, favoritesRes] = await Promise.all([
         fetch(`/api/projects?${qs}`, { credentials: 'include' }),
         fetch('/api/favorites', { credentials: 'include' }).catch(() => null),
@@ -66,10 +72,10 @@ export default function ProjectsPage() {
       const favoritesPayload = favoritesRes ? await favoritesRes.json().catch(() => ({ data: [] })) : { data: [] };
       const items: any[] = payload.data || [];
       setRows(items);
-      setLoading(false);
       const favoriteMap = Object.fromEntries((favoritesPayload?.data || []).map((x: any) => [String(x.itemId), true]));
       setSaved(favoriteMap);
 
+      // Load match scores in background
       fetch('/api/recommend', {
         method: 'POST',
         credentials: 'include',
@@ -93,11 +99,33 @@ export default function ProjectsPage() {
         })
         .catch(() => {});
     } catch {
+      // no-op
+    } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => { load(); }, []);
+
+  // Debounced search
+  function handleSearchChange(q: string) {
+    const next = { ...form, q };
+    setForm(next);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => load(next), 400);
+  }
+
+  function applyChip(chip: string) {
+    const next = { ...form, q: chip };
+    setForm(next);
+    load(next);
+  }
+
+  function resetFilters() {
+    const empty = { q: '', category: '', city: '', experience: '', employment: '', sort: 'newest' };
+    setForm(empty);
+    load(empty);
+  }
 
   const quickStats = useMemo(() => {
     const total = rows.length;
@@ -114,15 +142,10 @@ export default function ProjectsPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        itemId: item.id,
-        itemType: item.type,
-        title: item.title,
-        companyName: item.company || '',
-        city: item.city || '',
-        category: item.category || '',
-        budgetMin: item.budgetMin ?? null,
-        budgetMax: item.budgetMax ?? null,
-        source: item.source || '',
+        itemId: item.id, itemType: item.type, title: item.title,
+        companyName: item.company || '', city: item.city || '',
+        category: item.category || '', budgetMin: item.budgetMin ?? null,
+        budgetMax: item.budgetMax ?? null, source: item.source || '',
       }),
     });
   }
@@ -144,7 +167,6 @@ export default function ProjectsPage() {
     if (!applyingId) return;
     const project = rows.find((r) => r.id === applyingId);
     if (!project) return;
-
     setApplyState((prev) => ({ ...prev, [applyingId]: 'submitting' }));
     try {
       const res = await fetch('/api/applications', {
@@ -152,11 +174,8 @@ export default function ProjectsPage() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itemId: project.id,
-          itemType: project.type,
-          title: project.title,
-          companyName: project.company || '',
-          source: project.source || '',
+          itemId: project.id, itemType: project.type, title: project.title,
+          companyName: project.company || '', source: project.source || '',
           coverLetter: coverLetter.trim() || DEFAULT_COVER,
           proposedPrice: proposedPrice ? Number(proposedPrice) : null,
         }),
@@ -167,12 +186,10 @@ export default function ProjectsPage() {
         setApplyState((prev) => ({ ...prev, [applyingId]: 'applied' }));
         setApplyingId(null);
       } else {
-        setApplyState((prev) => ({ ...prev, [applyingId]: 'error' }));
         alert(payload?.error?.message || payload?.error || 'Failed to apply.');
         setApplyState((prev) => ({ ...prev, [applyingId]: 'idle' }));
       }
     } catch {
-      setApplyState((prev) => ({ ...prev, [applyingId]: 'error' }));
       setApplyState((prev) => ({ ...prev, [applyingId!]: 'idle' }));
     }
   }
@@ -182,67 +199,117 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6 py-2">
+      {/* Header */}
       <section className="card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-blue-700">Project marketplace</p>
-            <h1 className="section-title mt-1">Find verified client orders</h1>
-            <p className="muted mt-2 max-w-2xl">Explore active opportunities with transparent budgets, deadlines, and skill requirements.</p>
+            <h1 className="section-title mt-1">{T('proj_title')}</h1>
+            <p className="muted mt-2 max-w-2xl">{T('proj_subtitle')}</p>
           </div>
-          <div className="grid gap-2 text-right">
+          <div className="grid gap-1 text-right">
             <p className="text-sm text-slate-500">Results</p>
             <p className="text-3xl font-semibold text-slate-900">{quickStats.total}</p>
-            <p className="text-xs text-slate-500">Avg budget: ${quickStats.avgBudget || 0}</p>
+            <p className="text-xs text-slate-500">Avg: ${quickStats.avgBudget || 0}</p>
           </div>
+        </div>
+        {/* Quick chips */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {POPULAR_CHIPS.map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              onClick={() => applyChip(chip)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 ${form.q === chip ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600'}`}
+            >
+              {chip}
+            </button>
+          ))}
+          {(form.q || form.category || form.city || form.experience || form.employment) && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
+            >
+              ✕ {T('proj_reset_filters')}
+            </button>
+          )}
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
+      <section className="grid gap-6 lg:grid-cols-[280px_1fr]">
+        {/* Filters sidebar */}
         <aside className="card h-fit p-5 lg:sticky lg:top-24">
-          <h2 className="text-lg font-semibold text-slate-900">Filters</h2>
-          <p className="mt-1 text-sm text-slate-500">Narrow results by role fit and delivery context.</p>
+          <h2 className="text-lg font-semibold text-slate-900">{T('proj_filters')}</h2>
           <div className="mt-4 space-y-3">
-            <input value={form.q} onChange={(e) => setForm({ ...form, q: e.target.value })} placeholder="Search by title or keyword" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-              <option value="">All categories</option>
+            <input
+              value={form.q}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder={T('proj_search_placeholder')}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
+            />
+            <select
+              value={form.category}
+              onChange={(e) => { const next = { ...form, category: e.target.value }; setForm(next); load(next); }}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">{T('proj_all_categories')}</option>
               {categoryOptions.map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
-            <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="City" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            <select value={form.experience} onChange={(e) => setForm({ ...form, experience: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-              <option value="">Any experience</option>
+            <input
+              value={form.city}
+              onChange={(e) => { const next = { ...form, city: e.target.value }; setForm(next); }}
+              onBlur={() => load()}
+              placeholder={T('proj_city')}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+            />
+            <select
+              value={form.experience}
+              onChange={(e) => { const next = { ...form, experience: e.target.value }; setForm(next); load(next); }}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">{T('proj_any_experience')}</option>
               {experienceOptions.map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
-            <select value={form.employment} onChange={(e) => setForm({ ...form, employment: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-              <option value="">Any format</option>
+            <select
+              value={form.employment}
+              onChange={(e) => { const next = { ...form, employment: e.target.value }; setForm(next); load(next); }}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">{T('proj_any_format')}</option>
               {employmentOptions.map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
-            <select value={form.sort} onChange={(e) => setForm({ ...form, sort: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-              <option value="newest">Newest first</option>
-              <option value="budget_desc">Highest budget</option>
-              <option value="budget_asc">Lowest budget</option>
+            <select
+              value={form.sort}
+              onChange={(e) => { const next = { ...form, sort: e.target.value }; setForm(next); load(next); }}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+            >
+              <option value="newest">{T('proj_newest')}</option>
+              <option value="budget_desc">{T('proj_highest_budget')}</option>
+              <option value="budget_asc">{T('proj_lowest_budget')}</option>
             </select>
-            <button onClick={load} className="btn-primary w-full">{loading ? 'Loading...' : 'Apply filters'}</button>
+            <button onClick={() => load()} className="btn-primary w-full">
+              {loading ? T('loading') : T('proj_apply_filters')}
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              {T('proj_reset_filters')}
+            </button>
           </div>
         </aside>
 
+        {/* Project list */}
         <div className="space-y-4">
-          <div className="card p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                <span className="pill">Unified vacancies + projects</span>
-                <span className="pill">Fast response</span>
-                <span className="pill">Student-friendly scope</span>
-              </div>
-              <p className="text-sm text-slate-500">{rows.length} opportunities found</p>
-            </div>
-          </div>
-
           {loading && (
             <div className="grid gap-4">
               {Array.from({ length: 4 }).map((_, idx) => (
                 <div key={idx} className="card animate-pulse p-5">
                   <div className="h-5 w-2/3 rounded bg-slate-200" />
                   <div className="mt-3 h-4 w-full rounded bg-slate-100" />
+                  <div className="mt-2 h-4 w-1/2 rounded bg-slate-100" />
                 </div>
               ))}
             </div>
@@ -251,67 +318,98 @@ export default function ProjectsPage() {
           {!loading && rows.map((p) => {
             const isApplied = appliedIds.has(p.id) || applyState[p.id] === 'applied';
             const isSubmitting = applyState[p.id] === 'submitting';
+            const matchPct = Number(p.matchPercent);
+            const hasMatch = Number.isFinite(matchPct) && matchPct > 0;
             return (
-              <article key={p.id} className="card p-5 md:p-6">
+              <article key={p.id} className="card p-5 md:p-6 transition hover:shadow-md">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <Link href={`/projects/${encodeURIComponent(p.id)}`} className="text-xl font-semibold text-slate-900 hover:text-blue-700">
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/projects/${encodeURIComponent(p.id)}`} className="text-lg font-bold text-slate-900 hover:text-blue-700">
                       {p.title}
                     </Link>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {p.company || 'Company'} · {p.city || T('remote')}
+                    </p>
                     <p className="mt-2 text-sm leading-relaxed text-slate-600 line-clamp-2">{p.description}</p>
                   </div>
-                  {Number.isFinite(Number(p.matchPercent)) && Number(p.matchPercent) > 0 ? (
-                    <div className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${Number(p.matchPercent) >= 75 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : Number(p.matchPercent) >= 50 ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-                      {Math.round(Number(p.matchPercent))}% match
+                  {hasMatch ? (
+                    <div className={`shrink-0 rounded-xl border px-3 py-2 text-sm font-bold ${matchPct >= 75 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : matchPct >= 50 ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                      {Math.round(matchPct)}% {T('proj_match')}
                     </div>
                   ) : (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-500">
-                      {p.source === 'client_project' ? 'Client project' : p.type === 'vacancy' ? 'Vacancy' : 'Project'}
+                    <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+                      {p.source === 'demo' ? 'Demo' : p.type === 'vacancy' ? 'Vacancy' : 'Project'}
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {(p.requiredSkills || []).slice(0, 6).map((skill) => (
-                    <span key={`${p.id}-${skill}`} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">{skill}</span>
-                  ))}
+                {/* Skills */}
+                {!!(p.requiredSkills?.length) && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(p.requiredSkills || []).slice(0, 7).map((skill) => (
+                      <span key={`${p.id}-${skill}`} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-700">{skill}</span>
+                    ))}
+                    {(p.requiredSkills?.length || 0) > 7 && (
+                      <span className="rounded-full border border-slate-200 px-2.5 py-0.5 text-xs text-slate-400">+{(p.requiredSkills?.length || 0) - 7}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Metadata grid */}
+                <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+                  <div>
+                    <p className="text-xs text-slate-400">{T('proj_budget')}</p>
+                    <p className="font-semibold text-slate-900">
+                      {(p.budgetMin != null || p.budgetMax != null) ? `$${p.budgetMin ?? 0} – $${p.budgetMax ?? 0}` : T('not_specified')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{T('proj_company')}</p>
+                    <p className="font-semibold text-slate-900 truncate">{p.company || T('not_specified')}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{T('proj_city')}</p>
+                    <p className="font-semibold text-slate-900">{p.city || T('remote')}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{T('proj_experience')}</p>
+                    <p className="font-semibold text-slate-900">{p.experienceLevel || T('not_specified')}</p>
+                  </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-4">
-                  <div><p className="text-xs text-slate-500">Budget</p><p className="font-semibold text-slate-900">{Number.isFinite(Number(p.budgetMin)) || Number.isFinite(Number(p.budgetMax)) ? `$${p.budgetMin ?? 0} – $${p.budgetMax ?? 0}` : 'Not specified'}</p></div>
-                  <div><p className="text-xs text-slate-500">Company</p><p className="font-semibold text-slate-900">{p.company || 'Not specified'}</p></div>
-                  <div><p className="text-xs text-slate-500">City</p><p className="font-semibold text-slate-900">{p.city || 'Remote'}</p></div>
-                  <div><p className="text-xs text-slate-500">Experience</p><p className="font-semibold text-slate-900">{p.experienceLevel || 'Not specified'}</p></div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="status-pill bg-emerald-100 text-emerald-700">{p.employmentType || 'OPEN'}</span>
-                    <span className="status-pill bg-blue-100 text-blue-700">{p.source || 'unified'}</span>
+                {/* Actions */}
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {p.employmentType && <span className="status-pill bg-emerald-100 text-emerald-700 text-xs">{p.employmentType}</span>}
+                    {p.category && <span className="status-pill bg-blue-100 text-blue-700 text-xs">{p.category}</span>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => toggleFavorite(p)} className="btn-secondary">
-                      {saved[p.id] ? '♥ Saved' : '♡ Save'}
+                    <button
+                      type="button"
+                      onClick={() => toggleFavorite(p)}
+                      className="btn-secondary text-xs"
+                    >
+                      {saved[p.id] ? `♥ ${T('proj_saved')}` : `♡ ${T('proj_save')}`}
                     </button>
                     {authRole === 'STUDENT' ? (
                       isApplied ? (
                         <span className="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                          Applied
+                          ✓ {T('proj_applied')}
                         </span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => openApplyModal(p.id)}
                           disabled={isSubmitting}
-                          className="btn-secondary disabled:opacity-50"
+                          className="btn-secondary text-xs disabled:opacity-50"
                         >
-                          {isSubmitting ? 'Submitting...' : 'Apply'}
+                          {isSubmitting ? T('loading') : T('proj_apply')}
                         </button>
                       )
                     ) : authRole === null ? (
-                      <Link href="/signin" className="btn-secondary">Sign in to apply</Link>
+                      <Link href="/signin" className="btn-secondary text-xs">{T('proj_sign_in_to_apply')}</Link>
                     ) : null}
-                    <Link href={`/projects/${encodeURIComponent(p.id)}`} className="btn-primary">View details</Link>
+                    <Link href={`/projects/${encodeURIComponent(p.id)}`} className="btn-primary text-xs">{T('proj_view_details')}</Link>
                   </div>
                 </div>
               </article>
@@ -320,11 +418,11 @@ export default function ProjectsPage() {
 
           {!loading && rows.length === 0 && (
             <div className="card p-10 text-center">
-              <p className="text-3xl">🔎</p>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900">No opportunities match your filters yet</h3>
-              <p className="mt-2 text-sm text-slate-600">Try broader filters or remove strict conditions to discover more opportunities.</p>
-              <button onClick={() => { setForm({ q: '', category: '', city: '', experience: '', employment: '', sort: 'newest' }); setTimeout(load, 0); }} className="btn-primary mt-4">
-                Reset filters
+              <p className="text-4xl">🔎</p>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900">{T('proj_no_results')}</h3>
+              <p className="mt-2 text-sm text-slate-600">{T('proj_no_results_sub')}</p>
+              <button onClick={resetFilters} className="btn-primary mt-4">
+                {T('proj_reset_filters')}
               </button>
             </div>
           )}
@@ -335,11 +433,11 @@ export default function ProjectsPage() {
       {applyingId && applyState[applyingId] === 'modal' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">Apply to this project</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{T('apply_title')}</h3>
             <p className="mt-1 text-sm text-slate-500">{rows.find((r) => r.id === applyingId)?.title}</p>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Cover letter</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">{T('apply_cover_letter')}</label>
                 <textarea
                   value={coverLetter}
                   onChange={(e) => setCoverLetter(e.target.value)}
@@ -348,7 +446,7 @@ export default function ProjectsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Proposed price ($, optional)</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">{T('apply_price')}</label>
                 <input
                   type="number"
                   value={proposedPrice}
@@ -359,8 +457,8 @@ export default function ProjectsPage() {
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={closeModal} className="btn-secondary">Cancel</button>
-              <button type="button" onClick={submitApply} className="btn-primary">Submit application</button>
+              <button type="button" onClick={closeModal} className="btn-secondary">{T('apply_cancel')}</button>
+              <button type="button" onClick={submitApply} className="btn-primary">{T('apply_submit')}</button>
             </div>
           </div>
         </div>

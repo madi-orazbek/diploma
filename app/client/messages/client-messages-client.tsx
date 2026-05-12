@@ -194,14 +194,24 @@ export default function ClientMessagesClient() {
                         ` · ${activeConv.project?.title || activeConv.application?.title}`}
                     </p>
                   </div>
-                  {activeConv.studentId && (
-                    <Link
-                      href={`/client/students?view=${activeConv.studentId}`}
-                      className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                    >
-                      View profile
-                    </Link>
-                  )}
+                  <div className="flex shrink-0 gap-2">
+                    {activeConv.studentId && (
+                      <Link
+                        href={`/students/${activeConv.studentId}`}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        View profile
+                      </Link>
+                    )}
+                    {activeConv.itemId && (
+                      <Link
+                        href={`/projects/${activeConv.itemId}`}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        View project
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
 

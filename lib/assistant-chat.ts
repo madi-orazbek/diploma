@@ -76,14 +76,22 @@ function parseIntent(input: string): AssistantIntent {
   if (text.includes('why') && (text.includes('recommend') || text.includes('match'))) return 'why_recommended';
   if (text.includes('improve') && text.includes('profile')) return 'improve_profile';
   if (text.includes('make my profile stronger') || text.includes('update my profile')) return 'improve_profile';
-  if ((text.includes('skill') || text.includes('skills')) && (text.includes('missing') || text.includes('add') || text.includes('learn') || text.includes('gap') || text.includes('suggest'))) return 'skills_gap';
+  if (text.includes('write') && text.includes('cover letter')) return 'help_apply';
+  if (text.includes('cover letter') || (text.includes('apply') && text.includes('help'))) return 'help_apply';
+  if ((text.includes('skill') || text.includes('skills')) && (text.includes('missing') || text.includes('add') || text.includes('learn') || text.includes('gap') || text.includes('suggest') || text.includes('next'))) return 'skills_gap';
   if (text.includes('what should i learn') || text.includes('learn next') || text.includes('roadmap')) return 'learn_next';
-  if (text.includes('backend')) return 'show_backend';
-  if (text.includes('frontend')) return 'show_frontend';
+  // Russian variants
+  if (text.includes('улучш') && text.includes('профил')) return 'improve_profile';
+  if (text.includes('навык') && (text.includes('учить') || text.includes('изучить') || text.includes('добавить'))) return 'skills_gap';
+  if (text.includes('сопроводительн') || (text.includes('написать') && text.includes('письм'))) return 'help_apply';
+  if (text.includes('почему') && (text.includes('рекоменд') || text.includes('совпад'))) return 'why_recommended';
+  if (text.includes('backend') || text.includes('бэкенд') || text.includes('серверн')) return 'show_backend';
+  if (text.includes('frontend') || text.includes('фронтенд') || text.includes('react') || text.includes('vue')) return 'show_frontend';
+  if (text.includes('high-match') || text.includes('high match') || text.includes('лучш') && text.includes('проект')) return 'find_jobs';
   if (text.includes('astana') || text.includes('almaty') || text.includes('shymkent') || (text.includes('city') && (text.includes('job') || text.includes('work')))) return 'jobs_in_city';
-  if ((text.includes('apply') || text.includes('cover letter') || text.includes('application')) && (text.includes('help') || text.includes('how') || text.includes('write'))) return 'help_apply';
-  if ((text.includes('find') || text.includes('show') || text.includes('get')) && (text.includes('job') || text.includes('project') || text.includes('work') || text.includes('vacancy'))) return 'find_jobs';
+  if ((text.includes('find') || text.includes('show') || text.includes('get') || text.includes('best')) && (text.includes('job') || text.includes('project') || text.includes('work') || text.includes('vacancy'))) return 'find_jobs';
   if (text.includes('recommend') && !text.includes('why')) return 'find_jobs';
+  if (text.includes('найти') || text.includes('показ') && (text.includes('проект') || text.includes('вакансии'))) return 'find_jobs';
   if (text.includes('job') || text.includes('vacancy') || text.includes('project')) return 'find_jobs';
   return 'general';
 }

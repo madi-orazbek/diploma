@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useI18n } from '@/lib/i18n/I18nContext';
 
 type Role = 'STUDENT' | 'CLIENT' | 'ADMIN';
 type AuthMe = { userId: string; role: Role };
@@ -14,6 +15,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { lang, setLang, T } = useI18n();
 
   useEffect(() => {
     let mounted = true;
@@ -51,25 +53,24 @@ export function Navbar() {
 
   const navLinks = useMemo(() => {
     if (!authUser) {
-      // Guest nav
       return [
-        { label: 'Home', href: '/' },
-        { label: 'Projects', href: '/projects' },
-        { label: 'About', href: '/about' },
+        { label: T('nav_home'), href: '/' },
+        { label: T('nav_projects'), href: '/projects' },
+        { label: T('nav_about'), href: '/about' },
       ];
     }
     if (authUser.role === 'STUDENT') return [
-      { label: 'Dashboard', href: '/student/dashboard' },
-      { label: 'Projects', href: '/projects' },
-      { label: 'My Applications', href: '/student/applications' },
-      { label: 'Messages', href: '/student/messages' },
+      { label: T('nav_dashboard'), href: '/student/dashboard' },
+      { label: T('nav_projects'), href: '/projects' },
+      { label: T('nav_applications'), href: '/student/applications' },
+      { label: T('nav_messages'), href: '/student/messages' },
     ];
     if (authUser.role === 'CLIENT') return [
-      { label: 'Dashboard', href: '/client/dashboard' },
-      { label: 'My Projects', href: '/client/projects' },
-      { label: 'Applicants', href: '/client/applicants' },
-      { label: 'Find Students', href: '/client/students' },
-      { label: 'Messages', href: '/client/messages' },
+      { label: T('nav_dashboard'), href: '/client/dashboard' },
+      { label: T('nav_my_projects'), href: '/client/projects' },
+      { label: T('nav_applicants'), href: '/client/applicants' },
+      { label: T('nav_find_students'), href: '/client/students' },
+      { label: T('nav_messages'), href: '/client/messages' },
     ];
     // ADMIN
     return [
@@ -78,7 +79,7 @@ export function Navbar() {
       { label: 'Users', href: '/admin/users' },
       { label: 'Moderation', href: '/admin/projects' },
     ];
-  }, [authUser]);
+  }, [authUser, lang]);
 
   const profileHref = authUser?.role === 'STUDENT'
     ? '/student/profile'
@@ -131,24 +132,33 @@ export function Navbar() {
 
         {/* Desktop right side */}
         <div className="hidden lg:flex items-center gap-2">
+          {/* Language switcher */}
+          <button
+            type="button"
+            onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+            title="Switch language"
+          >
+            {lang === 'en' ? '🇷🇺 RU' : '🇬🇧 EN'}
+          </button>
           {!loading && !authUser && (
             <>
-              <Link href="/signin" className="btn-secondary">Sign in</Link>
-              <Link href="/signin?tab=signup" className="btn-primary">Create account</Link>
+              <Link href="/signin" className="btn-secondary">{T('nav_signin')}</Link>
+              <Link href="/signin?tab=signup" className="btn-primary">{T('nav_create_account')}</Link>
             </>
           )}
           {!loading && authUser && (
             <>
               {authUser.role === 'STUDENT' && (
                 <Link href="/favorites" className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50" title="Saved projects">
-                  ♥ Saved
+                  {T('nav_saved')}
                 </Link>
               )}
               <Link href={profileHref} className="btn-secondary">
-                {authUser.role === 'CLIENT' ? 'Company Profile' : 'Profile'}
+                {authUser.role === 'CLIENT' ? T('nav_company_profile') : T('nav_profile')}
               </Link>
               <button type="button" onClick={logout} disabled={logoutBusy} className="btn-primary disabled:opacity-50">
-                {logoutBusy ? 'Signing out...' : 'Sign out'}
+                {logoutBusy ? T('nav_signing_out') : T('nav_signout')}
               </button>
             </>
           )}
@@ -184,22 +194,29 @@ export function Navbar() {
             {!loading && authUser && (
               <>
                 {authUser.role === 'STUDENT' && (
-                  <Link href="/favorites" onClick={() => setMobileOpen(false)} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">♥ Saved projects</Link>
+                  <Link href="/favorites" onClick={() => setMobileOpen(false)} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">{T('nav_saved')}</Link>
                 )}
                 <Link href={profileHref} onClick={() => setMobileOpen(false)} className="btn-secondary text-center">
-                  {authUser.role === 'CLIENT' ? 'Company Profile' : 'My Profile'}
+                  {authUser.role === 'CLIENT' ? T('nav_company_profile') : T('nav_profile')}
                 </Link>
                 <button type="button" onClick={logout} disabled={logoutBusy} className="btn-primary disabled:opacity-50">
-                  {logoutBusy ? 'Signing out...' : 'Sign out'}
+                  {logoutBusy ? T('nav_signing_out') : T('nav_signout')}
                 </button>
               </>
             )}
             {!loading && !authUser && (
               <>
-                <Link href="/signin" onClick={() => setMobileOpen(false)} className="btn-secondary text-center">Sign in</Link>
-                <Link href="/signin?tab=signup" onClick={() => setMobileOpen(false)} className="btn-primary text-center">Create account</Link>
+                <Link href="/signin" onClick={() => setMobileOpen(false)} className="btn-secondary text-center">{T('nav_signin')}</Link>
+                <Link href="/signin?tab=signup" onClick={() => setMobileOpen(false)} className="btn-primary text-center">{T('nav_create_account')}</Link>
               </>
             )}
+            <button
+              type="button"
+              onClick={() => { setLang(lang === 'en' ? 'ru' : 'en'); setMobileOpen(false); }}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 text-center"
+            >
+              {lang === 'en' ? '🇷🇺 Русский' : '🇬🇧 English'}
+            </button>
           </div>
         </div>
       )}
