@@ -34,36 +34,155 @@ type ChatItem = {
 };
 
 const STUDENT_QUICK_ACTIONS = [
-  'Find best projects for me',
-  'Why is this project recommended?',
-  'Improve my profile',
-  'Help me write a cover letter',
-  'What skills should I learn next?',
-  'Show high-match projects',
-  'Show backend projects',
-  'Show frontend projects',
+  { label: '🎯 Best projects for me', prompt: 'Find best projects for me' },
+  { label: '✍️ Write cover letter', prompt: 'Help me write a cover letter' },
+  { label: '📈 Improve my profile', prompt: 'Improve my profile' },
+  { label: '🔍 Why recommended?', prompt: 'Why is this project recommended?' },
+  { label: '🚀 Skills to learn', prompt: 'What skills should I learn next?' },
+  { label: '⚡ High-match projects', prompt: 'Show high-match projects' },
+  { label: '🖥️ Backend projects', prompt: 'Show backend projects' },
+  { label: '🎨 Frontend projects', prompt: 'Show frontend projects' },
 ];
 
 const CLIENT_QUICK_ACTIONS = [
-  'Find best students for my project',
-  'Explain why this student matches',
-  'Improve my project description',
-  'Write an invitation message',
-  'Compare applicants',
-  'How to attract better candidates?',
-  'What budget should I set?',
-  'How does ML matching work?',
+  { label: '🎯 Best students', prompt: 'Find best students for my project' },
+  { label: '✍️ Write invitation', prompt: 'Write an invitation message' },
+  { label: '📋 Improve post', prompt: 'Improve my project description' },
+  { label: '🔍 Why this student?', prompt: 'Explain why this student matches' },
+  { label: '⚖️ Compare applicants', prompt: 'Compare applicants' },
+  { label: '💰 Set right budget', prompt: 'What budget should I set?' },
+  { label: '🧲 Attract candidates', prompt: 'How to attract better candidates?' },
+  { label: '🤖 How ML works?', prompt: 'How does ML matching work?' },
 ];
 
-const STUDENT_EMPTY = 'Hi! I\'m your AI Career Assistant. I can help you find matching projects, explain recommendations, improve your profile, and write cover letters. What would you like to do?';
-const CLIENT_EMPTY = 'Hi! I\'m your Project Assistant. I can help you find the best student candidates, improve your project posts, write invitation messages, and understand ML matching scores. How can I help?';
+const STUDENT_EMPTY = "Hi! I'm your AI Career Assistant 🎓\n\nI can help you:\n• Find matching projects\n• Write cover letters\n• Improve your profile\n• Explain recommendations\n\nWhat would you like to do?";
+const CLIENT_EMPTY = "Hi! I'm your Project Assistant 🏢\n\nI can help you:\n• Find the best student candidates\n• Write invitation messages\n• Improve project descriptions\n• Explain ML matching scores\n\nHow can I help?";
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function TypingIndicator() {
+  return (
+    <div className="flex max-w-[80%] items-center gap-1 rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-3">
+      <span className="inline-flex gap-1">
+        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:0ms]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:150ms]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]" />
+      </span>
+    </div>
+  );
+}
+
+function MessageBubble({ item, onApply, onWhyRecommended, onApplyProfile, applyStatus }: {
+  item: ChatItem;
+  onApply: (id?: string) => void;
+  onWhyRecommended: (title: string) => void;
+  onApplyProfile: (patch?: ProfilePatch) => void;
+  applyStatus: Record<string, string>;
+}) {
+  const isUser = item.role === 'user';
+  return (
+    <div className={`flex flex-col gap-2 ${isUser ? 'items-end' : 'items-start'}`}>
+      <div
+        className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+          isUser
+            ? 'rounded-br-sm bg-blue-600 text-white shadow-sm'
+            : 'rounded-bl-sm bg-slate-100 text-slate-800'
+        }`}
+      >
+        {item.text}
+      </div>
+
+      {!isUser && !!item.tips?.length && (
+        <div className="w-full max-w-[88%] rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-slate-700">
+          <p className="mb-1.5 font-semibold text-blue-800">💡 Tips</p>
+          <ul className="list-disc space-y-1 pl-4">
+            {item.tips.map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!isUser && item.profilePatch && (
+        <button
+          type="button"
+          className="max-w-[88%] rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+          onClick={() => onApplyProfile(item.profilePatch)}
+        >
+          ✅ Apply suggested profile updates
+        </button>
+      )}
+
+      {!isUser && !!item.jobs?.length && (
+        <div className="w-full max-w-[88%] space-y-2">
+          {item.jobs.map((job) => (
+            <div key={job.projectId || `${job.title}-${job.city}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-slate-900 text-sm">{job.title}</p>
+                <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                  {job.matchScore}% match
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {[job.city, job.employmentType, job.experienceLevel, job.category].filter(Boolean).join(' · ')}
+              </p>
+              {job.budgetLabel && (
+                <p className="mt-0.5 text-xs font-semibold text-slate-700">💰 {job.budgetLabel}</p>
+              )}
+              {job.explanationSummary && (
+                <p className="mt-1.5 text-xs text-slate-600">{job.explanationSummary}</p>
+              )}
+              {!!job.matchedSignals?.length && (
+                <p className="mt-1 text-[11px] text-emerald-700">✅ {job.matchedSignals.join(' · ')}</p>
+              )}
+              {!!job.missingSignals?.length && (
+                <p className="mt-0.5 text-[11px] text-amber-700">⚠️ {job.missingSignals.join(' · ')}</p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {job.projectId ? (
+                  <Link
+                    href={`/projects/${encodeURIComponent(job.projectId)}`}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    View
+                  </Link>
+                ) : (
+                  <button type="button" disabled className="rounded-lg border px-2.5 py-1 text-[11px] text-slate-300">
+                    View
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onApply(job.projectId)}
+                  disabled={!job.projectId || !!applyStatus[job.projectId]}
+                  className="rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-white disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  {applyStatus[job.projectId] ? '✓ Applied' : 'Apply'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onWhyRecommended(job.title)}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
+                >
+                  Why?
+                </button>
+              </div>
+              {job.projectId && applyStatus[job.projectId] && (
+                <p className="mt-1 text-[11px] text-slate-500">{applyStatus[job.projectId]}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AssistantWidget() {
   const [open, setOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [role, setRole] = useState<Role>(null);
   const [roleLoaded, setRoleLoaded] = useState(false);
   const [prompt, setPrompt] = useState('');
@@ -72,6 +191,7 @@ export function AssistantWidget() {
   const [applyStatus, setApplyStatus] = useState<Record<string, string>>({});
   const [history, setHistory] = useState<ChatItem[]>([]);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' })
@@ -84,29 +204,38 @@ export function AssistantWidget() {
         setRoleLoaded(true);
       })
       .catch(() => {
-        // Network error — show student view, do not block the widget
         setHistory([{ id: uid(), role: 'assistant', text: STUDENT_EMPTY }]);
         setRoleLoaded(true);
       });
   }, []);
 
   useEffect(() => {
+    if (!busy) {
+      viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [history]);
+
+  useEffect(() => {
     viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight, behavior: 'smooth' });
-  }, [history, busy]);
+  }, [busy]);
+
+  // Focus input when opening
+  useEffect(() => {
+    if (open && !minimized) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open, minimized]);
 
   const apiEndpoint = role === 'CLIENT' ? '/api/assistant/client' : '/api/assistant/chat';
   const quickActions = role === 'CLIENT' ? CLIENT_QUICK_ACTIONS : STUDENT_QUICK_ACTIONS;
-  const title = role === 'CLIENT' ? 'Project Assistant' : 'AI Career Assistant';
-  const subtitle = role === 'CLIENT'
-    ? 'Project posting, student matching, and applicant evaluation'
-    : 'Job discovery, recommendation explanations, and profile improvement';
+  const title = role === 'CLIENT' ? '🏢 Project Assistant' : '🎓 AI Career Assistant';
 
   const ask = async (question: string) => {
     const trimmed = question.trim();
     if (!trimmed || busy) return;
-
-    // Still loading auth status — wait silently
     if (!roleLoaded) return;
+
+    setMinimized(false);
 
     if (!role) {
       setHistory((prev) => [
@@ -158,7 +287,7 @@ export function AssistantWidget() {
 
   const applyToProject = async (projectId?: string) => {
     if (!projectId) return;
-    setApplyStatus((prev) => ({ ...prev, [projectId]: 'Submitting application...' }));
+    setApplyStatus((prev) => ({ ...prev, [projectId]: 'submitting' }));
     try {
       const res = await fetch('/api/applications', {
         method: 'POST',
@@ -172,12 +301,12 @@ export function AssistantWidget() {
       });
       const payload = await res.json();
       if (!res.ok) {
-        setApplyStatus((prev) => ({ ...prev, [projectId]: payload?.error?.message || payload?.error || 'Failed to apply.' }));
+        setApplyStatus((prev) => ({ ...prev, [projectId]: 'error' }));
         return;
       }
-      setApplyStatus((prev) => ({ ...prev, [projectId]: 'Application sent successfully.' }));
-    } catch (e: any) {
-      setApplyStatus((prev) => ({ ...prev, [projectId]: e?.message || 'Failed to apply.' }));
+      setApplyStatus((prev) => ({ ...prev, [projectId]: 'applied' }));
+    } catch {
+      setApplyStatus((prev) => ({ ...prev, [projectId]: 'error' }));
     }
   };
 
@@ -200,7 +329,7 @@ export function AssistantWidget() {
       if (!saveRes.ok || !savePayload?.success) throw new Error(savePayload?.error || 'Failed to save profile suggestions.');
       setHistory((prev) => [
         ...prev,
-        { id: uid(), role: 'assistant', text: 'Done — I applied the suggested profile updates. You can review them on your profile page.' },
+        { id: uid(), role: 'assistant', text: '✅ Done — profile updates applied. Review them on your profile page.' },
       ]);
     } catch (e: any) {
       setError(e?.message || 'Failed to apply profile suggestions.');
@@ -209,167 +338,166 @@ export function AssistantWidget() {
     }
   };
 
-  const renderedQuickActions = useMemo(() => quickActions, [role]);
+  const clearChat = () => {
+    const emptyText = role === 'CLIENT' ? CLIENT_EMPTY : STUDENT_EMPTY;
+    setHistory([{ id: uid(), role: 'assistant', text: emptyText }]);
+    setError('');
+  };
+
+  if (!open) {
+    return (
+      <div className="fixed bottom-5 right-5 z-50">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-xl hover:bg-blue-700 active:scale-95 transition-all"
+        >
+          <span className="text-base">🤖</span>
+          {role === 'CLIENT' ? 'Project assistant' : 'AI assistant'}
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
-      {open && (
-        <div className="card mb-3 w-[420px] max-w-[calc(100vw-24px)] overflow-hidden">
-          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">{title}</p>
-                <p className="text-xs text-slate-500">{subtitle}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const emptyText = role === 'CLIENT' ? CLIENT_EMPTY : STUDENT_EMPTY;
-                  setHistory([{ id: uid(), role: 'assistant', text: emptyText }]);
-                }}
-                className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-white"
-                title="Clear chat"
-              >
-                Clear
-              </button>
-            </div>
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+      {/* Main chat window */}
+      <div
+        className="card flex flex-col overflow-hidden shadow-2xl transition-all duration-200"
+        style={{
+          width: 'min(420px, calc(100vw - 24px))',
+          maxHeight: minimized ? 0 : 'min(600px, calc(100vh - 100px))',
+          opacity: minimized ? 0 : 1,
+          pointerEvents: minimized ? 'none' : 'auto',
+        }}
+      >
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">{title}</p>
+            <p className="text-[11px] text-blue-200">Powered by AI · always available</p>
           </div>
-
-          <div ref={viewportRef} className="max-h-[60vh] space-y-3 overflow-y-auto px-4 py-3">
-            {history.map((item) => (
-              <div key={item.id} className="space-y-2">
-                <div className={`max-w-[95%] rounded-2xl px-3 py-2 text-sm ${item.role === 'assistant' ? 'bg-slate-100 text-slate-700' : 'ml-auto bg-blue-600 text-white'}`}>
-                  {item.text}
-                </div>
-
-                {item.role === 'assistant' && !!item.tips?.length && (
-                  <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-slate-700">
-                    <p className="mb-1 font-semibold">Tips</p>
-                    <ul className="list-disc space-y-1 pl-5">
-                      {item.tips.map((tip) => (
-                        <li key={tip}>{tip}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {item.role === 'assistant' && item.profilePatch && (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded-md border px-2 py-1 text-xs font-semibold"
-                      onClick={() => applyProfilePatch(item.profilePatch)}
-                    >
-                      Apply suggested profile updates
-                    </button>
-                  </div>
-                )}
-
-                {item.role === 'assistant' && !!item.jobs?.length && (
-                  <div className="space-y-2">
-                    {item.jobs.map((job) => (
-                      <div key={job.projectId || `${job.title}-${job.city}`} className="rounded-xl border p-3">
-                        <p className="font-semibold text-slate-900">{job.title}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {job.city} · {job.employmentType} · {job.experienceLevel} · {job.category}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">Budget: {job.budgetLabel}</p>
-                        <p className="mt-1 text-xs font-semibold text-blue-700">Match score: {job.matchScore}</p>
-                        <p className="mt-2 text-xs text-slate-700">{job.explanationSummary}</p>
-                        {!!job.matchedSignals.length && (
-                          <p className="mt-1 text-xs text-emerald-700">Strong signals: {job.matchedSignals.join(' · ')}</p>
-                        )}
-                        {!!job.missingSignals.length && (
-                          <p className="mt-1 text-xs text-amber-700">Improve match: {job.missingSignals.join(' · ')}</p>
-                        )}
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {job.projectId ? (
-                            <Link href={`/projects/${encodeURIComponent(job.projectId)}`} className="rounded-md border px-2 py-1 text-xs font-semibold">
-                              View details
-                            </Link>
-                          ) : (
-                            <button type="button" disabled className="rounded-md border px-2 py-1 text-xs text-slate-400">
-                              View details
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => applyToProject(job.projectId)}
-                            disabled={!job.projectId}
-                            className="rounded-md bg-blue-600 px-2 py-1 text-xs font-semibold text-white disabled:bg-slate-300"
-                          >
-                            Apply now
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-md border px-2 py-1 text-xs"
-                            onClick={() => ask(`Why was ${job.title} recommended to me?`)}
-                          >
-                            Why recommended?
-                          </button>
-                        </div>
-                        {job.projectId && applyStatus[job.projectId] && (
-                          <p className="mt-1 text-xs text-slate-500">{applyStatus[job.projectId]}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {busy && <div className="text-xs text-slate-500">Assistant is thinking...</div>}
-          </div>
-
-          <div className="border-t border-slate-200 bg-white px-4 py-3">
-            {!!error && <p className="mb-2 text-xs text-red-600">{error}</p>}
-
-            {!role && roleLoaded && (
-              <p className="mb-2 text-xs text-slate-500">
-                <Link href="/signin" className="font-semibold text-blue-700 hover:underline">Sign in</Link>{' '}
-                to unlock personalized assistant features.
-              </p>
-            )}
-
-            <div className="mb-2 flex flex-wrap gap-2">
-              {renderedQuickActions.map((action) => (
-                <button
-                  key={action}
-                  type="button"
-                  onClick={() => ask(action)}
-                  className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  {action}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    ask(prompt);
-                  }
-                }}
-                placeholder={role === 'CLIENT' ? 'Ask about posting projects or evaluating applicants...' : 'Ask for jobs, recommendations, or profile improvements...'}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
-              />
-              <button type="button" onClick={() => ask(prompt)} disabled={busy} className="btn-primary disabled:opacity-50">
-                Send
-              </button>
-            </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={clearChat}
+              className="rounded px-2 py-1 text-[11px] font-medium text-blue-200 hover:bg-blue-500 hover:text-white"
+              title="Clear chat"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setMinimized((x) => !x)}
+              className="flex h-7 w-7 items-center justify-center rounded text-blue-200 hover:bg-blue-500 hover:text-white"
+              title="Minimize"
+            >
+              —
+            </button>
           </div>
         </div>
-      )}
-      <button
-        onClick={() => setOpen((x) => !x)}
-        className="btn-primary rounded-full px-5 py-3 shadow-lg"
-      >
-        {open ? 'Close assistant' : role === 'CLIENT' ? 'Project assistant' : 'AI career assistant'}
-      </button>
+
+        {/* Messages */}
+        <div
+          ref={viewportRef}
+          className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+          style={{ minHeight: 200, maxHeight: 'calc(min(600px, calc(100vh - 100px)) - 160px)' }}
+        >
+          {history.map((item) => (
+            <MessageBubble
+              key={item.id}
+              item={item}
+              onApply={applyToProject}
+              onWhyRecommended={(title) => ask(`Why was "${title}" recommended to me?`)}
+              onApplyProfile={applyProfilePatch}
+              applyStatus={applyStatus}
+            />
+          ))}
+          {busy && <TypingIndicator />}
+        </div>
+
+        {/* Input area */}
+        <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">
+          {!!error && (
+            <p className="mb-2 flex items-start gap-1 text-xs text-red-600">
+              <span>⚠️</span> {error}
+            </p>
+          )}
+
+          {!role && roleLoaded && (
+            <p className="mb-2 text-xs text-slate-500">
+              <Link href="/signin" className="font-semibold text-blue-600 hover:underline">Sign in</Link>{' '}
+              to unlock personalized features.
+            </p>
+          )}
+
+          {/* Quick actions — horizontally scrollable */}
+          <div className="mb-2.5 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {quickActions.map((action) => (
+              <button
+                key={action.prompt}
+                type="button"
+                onClick={() => ask(action.prompt)}
+                disabled={busy}
+                className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Text input */}
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  ask(prompt);
+                }
+              }}
+              placeholder={role === 'CLIENT' ? 'Ask about candidates or project posting…' : 'Ask for jobs, tips, or profile help…'}
+              disabled={busy}
+              className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none disabled:bg-slate-50"
+            />
+            <button
+              type="button"
+              onClick={() => ask(prompt)}
+              disabled={busy || !prompt.trim()}
+              className="shrink-0 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              {busy ? '…' : '↑'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* FAB row — toggle + minimize restore */}
+      <div className="flex items-center gap-2">
+        {minimized && (
+          <button
+            onClick={() => setMinimized(false)}
+            className="flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-700 shadow-lg hover:bg-blue-50"
+          >
+            <span>🤖</span> Open chat
+          </button>
+        )}
+        <button
+          onClick={() => {
+            if (open && !minimized) {
+              setOpen(false);
+            } else {
+              setOpen(true);
+              setMinimized(false);
+            }
+          }}
+          className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-xl hover:bg-blue-700 active:scale-95 transition-all"
+        >
+          <span className="text-base">🤖</span>
+          {open && !minimized ? 'Close' : role === 'CLIENT' ? 'Project assistant' : 'AI assistant'}
+        </button>
+      </div>
     </div>
   );
 }
