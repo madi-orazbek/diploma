@@ -44,6 +44,7 @@ export default function CompanyPublicProfile() {
   if (!profile) return <div className="card p-8 text-center text-slate-500">Company not found.</div>;
 
   const initials = (profile.companyName || 'C').slice(0, 2).toUpperCase();
+  const isVerifiedCompany = !!profile.companyDescription && !!profile.industry && (profile.activeProjects ?? 0) + (profile.completedProjects ?? 0) > 0;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 py-2">
@@ -64,9 +65,15 @@ export default function CompanyPublicProfile() {
               </p>
             </div>
           </div>
-          <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-            Verified company
-          </span>
+          {isVerifiedCompany ? (
+            <span className="flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+              ✓ Verified company
+            </span>
+          ) : (
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+              Unverified
+            </span>
+          )}
         </div>
       </section>
 

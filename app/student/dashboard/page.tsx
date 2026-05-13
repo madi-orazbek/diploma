@@ -8,6 +8,8 @@ import {
   trimDescription,
 } from '@/lib/jobRecommendations';
 import { ProfileReadiness } from '@/lib/profileReadiness';
+import { SkillsRadar } from '@/components/student/skills-radar';
+import { CvModal } from '@/components/student/cv-modal';
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   SENT:       { label: 'Pending',     color: 'bg-amber-100 text-amber-700' },
@@ -62,6 +64,7 @@ export default function StudentDashboard() {
   const [applyStatus, setApplyStatus] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [recentMessages, setRecentMessages] = useState<any[]>([]);
+  const [showCv, setShowCv] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -170,6 +173,13 @@ export default function StudentDashboard() {
             >
               ⭐ My matches
             </Link>
+            <button
+              type="button"
+              onClick={() => setShowCv(true)}
+              className="rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
+            >
+              📄 Generate CV
+            </button>
           </div>
         </div>
       </section>
@@ -433,6 +443,19 @@ export default function StudentDashboard() {
             </div>
           )}
 
+          {/* Skills radar */}
+          {profileData?.skills?.length > 0 && (
+            <div className="card p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-slate-900">🧠 Skill strengths</h3>
+                <Link href="/student/profile" className="text-xs font-semibold text-blue-600 hover:underline">Add skills</Link>
+              </div>
+              <div className="mt-3">
+                <SkillsRadar skills={profileData.skills} compact />
+              </div>
+            </div>
+          )}
+
           {/* AI insights */}
           <div className="card p-5">
             <h3 className="mb-3 font-semibold text-slate-900">💡 AI insights</h3>
@@ -451,6 +474,14 @@ export default function StudentDashboard() {
           </div>
         </div>
       </section>
+
+      {/* CV Modal */}
+      {showCv && (
+        <CvModal
+          profile={profileData}
+          onClose={() => setShowCv(false)}
+        />
+      )}
     </div>
   );
 }

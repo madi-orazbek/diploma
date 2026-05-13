@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n/I18nContext';
+import { NotificationBell } from '@/components/layout/notification-bell';
 
 type Role = 'STUDENT' | 'CLIENT' | 'ADMIN';
 type AuthMe = { userId: string; role: Role };
@@ -154,6 +155,7 @@ export function Navbar() {
                   {T('nav_saved')}
                 </Link>
               )}
+              <NotificationBell />
               <Link href={profileHref} className="btn-secondary">
                 {authUser.role === 'CLIENT' ? T('nav_company_profile') : T('nav_profile')}
               </Link>

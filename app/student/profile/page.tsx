@@ -2,6 +2,8 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { KAZAKHSTAN_UNIVERSITIES } from '@/lib/kazakhstanUniversities';
+import { CvModal } from '@/components/student/cv-modal';
+import { SkillsRadar } from '@/components/student/skills-radar';
 
 /* ── Types ──────────────────────────────────────────────── */
 type CertificateDoc = {
@@ -99,6 +101,7 @@ export default function StudentProfilePage() {
   const [mode, setMode]         = useState<'preview'|'edit'>('preview');
   const [error, setError]       = useState('');
   const [saved, setSaved]       = useState<Record<string,boolean>>({});
+  const [showCv, setShowCv]     = useState(false);
 
   /* form state */
   const [form, setForm] = useState({
@@ -274,6 +277,13 @@ export default function StudentProfilePage() {
           <div className="flex flex-wrap items-end gap-3 pb-1">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${levelInfo.color}`}>{levelInfo.label}</span>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${availInfo.color}`}>{availInfo.label}</span>
+            <button
+              type="button"
+              onClick={() => setShowCv(true)}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              📄 Generate CV
+            </button>
             <button onClick={()=>setMode(mode==='edit'?'preview':'edit')} className="btn-primary text-xs px-4 py-2">
               {mode==='edit'?'Preview profile':'Edit profile'}
             </button>
@@ -430,11 +440,46 @@ export default function StudentProfilePage() {
               </section>
             )}
 
-            <section className="card p-5">
+            {/* Skills Radar */}
+            {form.skills.length > 0 && (
+              <section className="card p-5">
+                <h2 className="mb-3 text-sm font-semibold text-slate-700">🧠 Skill strengths</h2>
+                <SkillsRadar skills={form.skills} compact />
+              </section>
+            )}
+
+            <section className="card p-5 space-y-2">
+              <button type="button" onClick={() => setShowCv(true)} className="btn-secondary w-full text-sm">📄 Generate CV</button>
               <button onClick={()=>setMode('edit')} className="btn-primary w-full text-sm">Edit profile</button>
             </section>
           </aside>
         </div>
+      )}
+
+      {/* CV Modal */}
+      {showCv && (
+        <CvModal
+          profile={{
+            name: `${form.firstName} ${form.lastName}`.trim() || undefined,
+            headline: form.headline || undefined,
+            phone: form.phone || undefined,
+            city: form.city || undefined,
+            university: form.university || undefined,
+            about: form.about || undefined,
+            skills: form.skills,
+            interests: form.interests,
+            experienceLevel: form.experienceLevel || undefined,
+            githubUrl: form.githubUrl || undefined,
+            linkedinUrl: form.linkedinUrl || undefined,
+            portfolioLinks: form.portfolioLinks,
+            languages: form.languageSelections,
+            availabilityStatus: form.availabilityStatus || undefined,
+            experienceEntries: form.experienceEntries,
+            certificateDocuments: form.certificateDocuments,
+            diplomaDocuments: form.diplomaDocuments,
+          }}
+          onClose={() => setShowCv(false)}
+        />
       )}
 
       {/* ════════════ EDIT MODE (sections) ════════════ */}

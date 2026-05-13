@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n/I18nContext';
+import { pushNotification } from '@/components/layout/notification-bell';
 
 type UnifiedProject = {
   id: string;
@@ -24,6 +25,8 @@ type UnifiedProject = {
 
 type ApplyState = 'idle' | 'modal' | 'submitting' | 'applied' | 'error';
 
+type Toast = { msg: string; conversationId?: string; type?: 'success' | 'error' };
+
 const DEFAULT_COVER = 'Hello, I am interested in this opportunity and would like to apply through UniWork.';
 
 const POPULAR_CHIPS = ['Backend', 'Frontend', 'Python', 'React', 'Data', 'ML', 'Remote', 'Junior'];
@@ -36,9 +39,13 @@ export default function ProjectsPage() {
   const [authRole, setAuthRole] = useState<string | null>(null);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [applyState, setApplyState] = useState<Record<string, ApplyState>>({});
+  const [conversationIds, setConversationIds] = useState<Record<string, string>>({});
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [coverLetter, setCoverLetter] = useState(DEFAULT_COVER);
   const [proposedPrice, setProposedPrice] = useState('');
+  const [generatingCover, setGeneratingCover] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [form, setForm] = useState({ q: '', category: '', city: '', experience: '', employment: '', sort: 'newest' });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -163,11 +170,46 @@ export default function ProjectsPage() {
     setApplyingId(null);
   }
 
+  function showToast(t: Toast) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(t);
+    toastTimerRef.current = setTimeout(() => setToast(null), 7000);
+  }
+
+  async function generateCoverLetter() {
+    if (!applyingId || generatingCover) return;
+    const project = rows.find((r) => r.id === applyingId);
+    if (!project) return;
+    setGeneratingCover(true);
+    try {
+      const res = await fetch('/api/assistant/chat', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Write a professional cover letter (3-4 sentences, concise and enthusiastic) for this project: "${project.title}". Required skills: ${(project.requiredSkills || []).slice(0, 6).join(', ')}. Company: ${project.company || 'the company'}. City: ${project.city || 'remote'}. Start directly with the letter text.`,
+        }),
+      });
+      const data = await res.json();
+      const reply = data?.data?.reply || data?.reply;
+      if (reply) {
+        const clean = reply.replace(/^(Cover Letter:|Dear Hiring Manager,?\n?)/i, '').trim();
+        setCoverLetter(clean);
+      }
+    } catch {
+      // keep default
+    } finally {
+      setGeneratingCover(false);
+    }
+  }
+
   async function submitApply() {
     if (!applyingId) return;
     const project = rows.find((r) => r.id === applyingId);
     if (!project) return;
-    setApplyState((prev) => ({ ...prev, [applyingId]: 'submitting' }));
+    const idSnapshot = applyingId;
+    setApplyState((prev) => ({ ...prev, [idSnapshot]: 'submitting' }));
+    setApplyingId(null);
     try {
       const res = await fetch('/api/applications', {
         method: 'POST',
@@ -182,15 +224,30 @@ export default function ProjectsPage() {
       });
       const payload = await res.json();
       if (res.ok) {
+        const convId: string | undefined = payload?.data?.conversationId;
         setAppliedIds((prev) => new Set([...prev, project.id]));
-        setApplyState((prev) => ({ ...prev, [applyingId]: 'applied' }));
-        setApplyingId(null);
+        setApplyState((prev) => ({ ...prev, [idSnapshot]: 'applied' }));
+        if (convId) {
+          setConversationIds((prev) => ({ ...prev, [project.id]: convId }));
+        }
+        // Push notification
+        pushNotification({
+          type: 'application',
+          title: 'Application submitted!',
+          text: `You applied to "${project.title}"${project.company ? ` at ${project.company}` : ''}`,
+          href: convId ? `/student/messages?conversationId=${convId}` : '/student/applications',
+        });
+        showToast({
+          msg: `✅ Applied to "${project.title}"!`,
+          conversationId: convId,
+          type: 'success',
+        });
       } else {
-        alert(payload?.error?.message || payload?.error || 'Failed to apply.');
-        setApplyState((prev) => ({ ...prev, [applyingId]: 'idle' }));
+        setApplyState((prev) => ({ ...prev, [idSnapshot]: 'idle' }));
+        showToast({ msg: payload?.error?.message || payload?.error || 'Failed to apply.', type: 'error' });
       }
     } catch {
-      setApplyState((prev) => ({ ...prev, [applyingId!]: 'idle' }));
+      setApplyState((prev) => ({ ...prev, [idSnapshot]: 'idle' }));
     }
   }
 
@@ -393,8 +450,17 @@ export default function ProjectsPage() {
                     </button>
                     {authRole === 'STUDENT' ? (
                       isApplied ? (
-                        <span className="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
                           ✓ {T('proj_applied')}
+                          {conversationIds[p.id] && (
+                            <Link
+                              href={`/student/messages?conversationId=${conversationIds[p.id]}`}
+                              className="ml-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[11px] text-white hover:bg-emerald-700"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Open chat →
+                            </Link>
+                          )}
                         </span>
                       ) : (
                         <button
@@ -430,37 +496,88 @@ export default function ProjectsPage() {
       </section>
 
       {/* Apply Modal */}
-      {applyingId && applyState[applyingId] === 'modal' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">{T('apply_title')}</h3>
-            <p className="mt-1 text-sm text-slate-500">{rows.find((r) => r.id === applyingId)?.title}</p>
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">{T('apply_cover_letter')}</label>
-                <textarea
-                  value={coverLetter}
-                  onChange={(e) => setCoverLetter(e.target.value)}
-                  rows={5}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none resize-none"
-                />
+      {applyingId && applyState[applyingId] === 'modal' && (() => {
+        const applyProject = rows.find((r) => r.id === applyingId);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-slate-900">{T('apply_title')}</h3>
+              <p className="mt-1 text-sm text-slate-500">{applyProject?.title}</p>
+              {applyProject?.requiredSkills?.length ? (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {applyProject.requiredSkills.slice(0, 5).map((s) => (
+                    <span key={s} className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">{s}</span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="mt-4 space-y-3">
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-sm font-medium text-slate-700">{T('apply_cover_letter')}</label>
+                    <button
+                      type="button"
+                      onClick={generateCoverLetter}
+                      disabled={generatingCover}
+                      className="flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+                    >
+                      {generatingCover ? '⏳ Generating…' : '✨ AI Generate'}
+                    </button>
+                  </div>
+                  <textarea
+                    value={coverLetter}
+                    onChange={(e) => setCoverLetter(e.target.value)}
+                    rows={6}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none resize-none"
+                    placeholder="Write your cover letter or click AI Generate..."
+                  />
+                  <p className="mt-1 text-xs text-slate-400">
+                    💡 Click "AI Generate" to create a tailored cover letter based on the project requirements.
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">{T('apply_price')}</label>
+                  <input
+                    type="number"
+                    value={proposedPrice}
+                    onChange={(e) => setProposedPrice(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
+                    placeholder="e.g. 500"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">{T('apply_price')}</label>
-                <input
-                  type="number"
-                  value={proposedPrice}
-                  onChange={(e) => setProposedPrice(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
-                  placeholder="e.g. 500"
-                />
+              <div className="mt-5 flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-400">A conversation will be created automatically after submitting.</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={closeModal} className="btn-secondary">{T('apply_cancel')}</button>
+                  <button type="button" onClick={submitApply} className="btn-primary">{T('apply_submit')}</button>
+                </div>
               </div>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={closeModal} className="btn-secondary">{T('apply_cancel')}</button>
-              <button type="button" onClick={submitApply} className="btn-primary">{T('apply_submit')}</button>
             </div>
           </div>
+        );
+      })()}
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed bottom-24 right-5 z-50 max-w-sm rounded-2xl px-5 py-4 shadow-2xl transition-all ${
+          toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'
+        }`}>
+          <p className="text-sm font-semibold">{toast.msg}</p>
+          {toast.conversationId && (
+            <Link
+              href={`/student/messages?conversationId=${toast.conversationId}`}
+              className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/30"
+            >
+              💬 Open chat →
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="absolute right-3 top-3 text-white/60 hover:text-white"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

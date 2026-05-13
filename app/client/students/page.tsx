@@ -155,11 +155,19 @@ export default function ClientStudentsPage() {
 
         {!loading && students.map((s) => {
           const ist = inviteState[s._id];
+          const isVerified = (s.skills?.length ?? 0) >= 5 && !!s.university && !!s.about;
           return (
             <div key={s._id} className="card p-5 flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-slate-900">{s.fullName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-slate-900">{s.fullName}</p>
+                    {isVerified && (
+                      <span className="flex items-center gap-0.5 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                        ✓ Verified
+                      </span>
+                    )}
+                  </div>
                   {s.university && <p className="mt-0.5 text-xs text-slate-500">{s.university}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
