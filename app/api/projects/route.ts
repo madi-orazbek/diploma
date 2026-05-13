@@ -49,7 +49,7 @@ function fuzzyMatch(haystack: string, tokens: string[]): boolean {
 }
 
 // Use the shared lib so the list page and details page always stay in sync
-const DEMO_PROJECTS = DEMO_PROJECTS_LIB as any[];
+const DEMO_PROJECTS = DEMO_PROJECTS_LIB as readonly any[];
 
 function includesText(value: unknown, query: string) {
   return String(value || '').toLowerCase().includes(query.toLowerCase());
