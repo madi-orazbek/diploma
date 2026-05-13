@@ -27,10 +27,15 @@ export async function GET(req: Request) {
         .sort({ lastMessageAt: -1, updatedAt: -1 })
         .lean();
 
-      // Deduplicate by (employerId + projectMongoId) — keep only the most recent
+      // Deduplicate by (employerId + projectMongoId) — keep only the most recent.
+      // When BOTH are null/empty (e.g. demo-project conversations) skip dedup so
+      // each conversation is shown individually instead of all being collapsed into one.
       const seen = new Set<string>();
       rows = rows.filter((r: any) => {
-        const key = `${String(r.employerId || '')}_${String(r.projectMongoId || '')}`;
+        const eid = String(r.employerId || '');
+        const pid = String(r.projectMongoId || '');
+        if (!eid && !pid) return true; // distinct conversations for demo projects
+        const key = `${eid}_${pid}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;

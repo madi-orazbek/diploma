@@ -140,7 +140,7 @@ export function Navbar() {
             className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
             title="Switch language"
           >
-            {lang === 'en' ? '🇷🇺 RU' : '🇬🇧 EN'}
+            {lang === 'en' ? 'RU' : 'EN'}
           </button>
           {!loading && !authUser && (
             <>
@@ -217,7 +217,7 @@ export function Navbar() {
               onClick={() => { setLang(lang === 'en' ? 'ru' : 'en'); setMobileOpen(false); }}
               className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 text-center"
             >
-              {lang === 'en' ? '🇷🇺 Русский' : '🇬🇧 English'}
+              {lang === 'en' ? 'RU — Русский' : 'EN — English'}
             </button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 type StudentProfile = {
@@ -40,10 +40,35 @@ const AVAIL_COLOR: Record<string, string> = {
 
 export default function StudentPublicProfile() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params?.id ?? '';
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [msgBusy, setMsgBusy] = useState(false);
+
+  async function openChat() {
+    if (msgBusy || !id) return;
+    setMsgBusy(true);
+    try {
+      const res = await fetch('/api/client/invite', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: id }),
+      });
+      const payload = await res.json();
+      if (res.ok && payload?.data?.conversationId) {
+        router.push('/client/messages');
+      } else {
+        router.push('/client/messages');
+      }
+    } catch {
+      router.push('/client/messages');
+    } finally {
+      setMsgBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -238,9 +263,14 @@ export default function StudentPublicProfile() {
 
           {/* Actions */}
           <section className="card p-5">
-            <Link href="/client/messages" className="btn-primary w-full text-center block">
-              Message student
-            </Link>
+            <button
+              type="button"
+              onClick={openChat}
+              disabled={msgBusy}
+              className="btn-primary w-full text-center disabled:opacity-50"
+            >
+              {msgBusy ? 'Opening chat...' : '✉ Message student'}
+            </button>
           </section>
         </aside>
       </div>

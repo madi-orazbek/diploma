@@ -89,6 +89,18 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── TRUST BAR ─── */}
+      <section className="pt-6">
+        <p className="text-center text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Trusted by students from leading universities</p>
+        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6">
+          {['AITU', 'SDU', 'Narxoz', 'KBTU', 'Kimep', 'Al-Farabi KazNU', 'Satbayev Univ'].map((uni) => (
+            <span key={uni} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm">
+              {uni}
+            </span>
+          ))}
+        </div>
+      </section>
+
       {/* ─── STATS ─── */}
       <section className="grid gap-4 md:grid-cols-4 pt-6">
         {[
@@ -238,6 +250,30 @@ export default function HomePage() {
                   <p className="text-xs text-slate-500">{tm.role}</p>
                 </div>
               </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── PLATFORM FEATURES ─── */}
+      <section className="mt-6">
+        <h2 className="mb-1 text-xl font-bold text-slate-900">Everything you need in one platform</h2>
+        <p className="mb-5 text-sm text-slate-500">Built specifically for Kazakhstani universities and companies, powered by AI.</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { icon: '🤖', title: 'AI-Powered Matching', desc: 'Our recommendation engine scores each student–project pair by skill overlap, experience level, and availability. No more manual searching.' },
+            { icon: '✉️', title: 'Built-in Messaging', desc: 'Students and clients communicate directly on the platform. Every application thread is preserved, searchable, and linked to the project.' },
+            { icon: '📄', title: 'CV Generator', desc: 'Students generate a polished PDF CV instantly from their profile — skills, experience, certificates, and portfolio all in one click.' },
+            { icon: '✅', title: 'Verified Profiles', desc: 'Students with 5+ skills, a university, and an About section earn a Verified badge, giving companies extra confidence when hiring.' },
+            { icon: '🌐', title: 'EN / RU Interface', desc: 'Full bilingual support across all pages. Students and companies switch languages with one click — no page reload needed.' },
+            { icon: '🔔', title: 'Notifications', desc: 'Real-time bell notifications for new messages, application status changes, and project invitations. Never miss an update.' },
+          ].map(({ icon, title, desc }) => (
+            <div key={title} className="card p-6 hover:shadow-md transition-shadow">
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-2xl">
+                {icon}
+              </div>
+              <h3 className="font-semibold text-slate-900">{title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{desc}</p>
             </div>
           ))}
         </div>

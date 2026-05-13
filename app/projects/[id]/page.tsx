@@ -79,7 +79,13 @@ export default function ProjectDetails() {
     fetch(`/api/projects/${id}`, { credentials: 'include' })
       .then((r) => r.json())
       .then((payload) => {
-        if (!payload?.success) throw new Error(payload?.error || 'Failed to load details');
+        if (!payload?.success) {
+          const errMsg =
+            typeof payload?.error === 'string'
+              ? payload.error
+              : payload?.error?.message || 'Project not found';
+          throw new Error(errMsg);
+        }
         setItem(payload.data);
       })
       .catch((e: any) => setError(e?.message || 'Failed to load details'));

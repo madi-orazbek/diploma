@@ -5,6 +5,7 @@ import { dbConnect } from '@/lib/mongodb';
 import { handleApi, ok, ApiError } from '@/lib/api';
 import { requireAuth } from '@/lib/auth';
 import { findProjectOrVacancyById } from '@/lib/projects/findProjectOrVacancyById';
+import { DEMO_PROJECTS } from '@/lib/demo-projects';
 
 const updateSchema = z.object({
   title: z.string().min(5).max(120).optional(),
@@ -22,6 +23,12 @@ const updateSchema = z.object({
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
   return handleApi(async () => {
+    // Check demo projects first (they are not in MongoDB)
+    const demo = (DEMO_PROJECTS as readonly any[]).find((d) => d.id === params.id);
+    if (demo) {
+      return ok({ ...demo, sourceCollection: 'demo', lookupId: params.id });
+    }
+
     const found = await findProjectOrVacancyById(params.id);
     if (!found?.doc) throw new ApiError('Project not found', 404);
     return ok({

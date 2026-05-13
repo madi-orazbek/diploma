@@ -182,22 +182,45 @@ export default function ProjectsPage() {
     if (!project) return;
     setGeneratingCover(true);
     try {
+      // Fetch the student's own profile to personalise the letter
+      const profileRes = await fetch('/api/student/profile', { credentials: 'include' });
+      const profilePayload = profileRes.ok ? await profileRes.json() : null;
+      const profile = profilePayload?.data || {};
+
+      const studentName = profile.fullName || 'a student';
+      const studentSkills = Array.isArray(profile.skills) ? profile.skills.slice(0, 8).join(', ') : '';
+      const studentLevel = profile.experienceLevel || '';
+      const studentUniversity = profile.university || '';
+      const about = profile.about ? profile.about.slice(0, 200) : '';
+
+      const projectSkills = (project.requiredSkills || []).slice(0, 6).join(', ');
+      const prompt = [
+        `Write a professional cover letter for ${studentName} applying to the role "${project.title}" at ${project.company || 'the company'} (${project.city || 'remote'}).`,
+        studentLevel && `The applicant's experience level is ${studentLevel}.`,
+        studentUniversity && `They study at ${studentUniversity}.`,
+        studentSkills && `Their key skills: ${studentSkills}.`,
+        about && `Brief background: ${about}`,
+        `The role requires: ${projectSkills || 'general technical skills'}.`,
+        'Write 3–4 sentences. Be specific, professional, and enthusiastic. Output ONLY the cover letter text — no greeting line, no header, no signature. Start with "I am".',
+      ].filter(Boolean).join(' ');
+
       const res = await fetch('/api/assistant/chat', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: `Write a professional cover letter (3-4 sentences, concise and enthusiastic) for this project: "${project.title}". Required skills: ${(project.requiredSkills || []).slice(0, 6).join(', ')}. Company: ${project.company || 'the company'}. City: ${project.city || 'remote'}. Start directly with the letter text.`,
-        }),
+        body: JSON.stringify({ message: prompt }),
       });
       const data = await res.json();
-      const reply = data?.data?.reply || data?.reply;
+      const reply = data?.data?.reply || data?.reply || '';
       if (reply) {
-        const clean = reply.replace(/^(Cover Letter:|Dear Hiring Manager,?\n?)/i, '').trim();
-        setCoverLetter(clean);
+        // Strip any accidental greeting lines or headers
+        const clean = reply
+          .replace(/^(Cover Letter:?\s*|Dear Hiring Manager,?\s*|Hello,?\s*)/i, '')
+          .trim();
+        setCoverLetter(clean || reply);
       }
     } catch {
-      // keep default
+      // keep default cover letter on error
     } finally {
       setGeneratingCover(false);
     }

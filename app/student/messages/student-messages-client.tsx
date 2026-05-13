@@ -107,7 +107,11 @@ export default function StudentMessagesClient() {
   const activeConv = useMemo(() => conversations.find((x) => x._id === activeId) || null, [conversations, activeId]);
 
   const displayName = (c: Conversation) =>
-    c.employer?.companyName || c.employer?.fullName || 'Company';
+    c.employer?.companyName ||
+    c.employer?.fullName ||
+    c.application?.title ||
+    c.project?.title ||
+    (c.itemId ? `Project (${c.itemId})` : 'Company');
 
   const displayTitle = (c: Conversation) =>
     c.project?.title || c.application?.title || '';
