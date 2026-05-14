@@ -287,7 +287,43 @@ function buildSuggestedAbout(profile: any) {
 
 const JOB_INTENTS: AssistantIntent[] = ['find_jobs', 'why_recommended', 'show_backend', 'show_frontend', 'jobs_in_city', 'help_apply', 'skills_gap', 'learn_next', 'improve_profile'];
 
+// Topics that are clearly off-scope for a career/project assistant
+const OFF_TOPIC_PATTERNS = [
+  /\b(food|eat|hunger|hungry|recipe|cook|cooking|restaurant|cafe|meal|lunch|dinner|breakfast|snack|drink|coffee|tea)\b/i,
+  /\b(weather|rain|snow|temperature|forecast|climate)\b/i,
+  /\b(movie|film|series|netflix|sport|football|soccer|basketball|game|gaming|anime|manga)\b/i,
+  /\b(politics|election|government|president|war|news|current events)\b/i,
+  /\b(health|doctor|medicine|hospital|symptom|disease|pain)\b/i,
+  /\b(travel|hotel|flight|vacation|holiday|trip|tourism)\b/i,
+  /\b(relationship|love|dating|marriage|friend|family|boyfriend|girlfriend)\b/i,
+  // Russian
+  /\b(еда|кушать|хочу есть|голод|рецепт|готовить|ресторан|кафе|обед|ужин|завтрак|кофе|чай|напиток)\b/i,
+  /\b(погода|дождь|снег|температура|прогноз)\b/i,
+  /\b(фильм|кино|сериал|спорт|футбол|баскетбол|игра|аниме|мангa)\b/i,
+  /\b(политик|выборы|правительство|президент|война|новости)\b/i,
+  /\b(здоровье|врач|больниц|симптом|болезнь|боль)\b/i,
+  /\b(путешест|отель|перелет|отпуск|туризм)\b/i,
+  /\b(отношени|любовь|свидани|замуж|друг|семья|парень|девушка)\b/i,
+];
+
+function isOffTopic(text: string): boolean {
+  return OFF_TOPIC_PATTERNS.some((re) => re.test(text));
+}
+
 export async function runCareerAssistant(message: string, userId: string): Promise<AssistantReply> {
+  // Off-topic guard — local fallback enforces the same restriction as the system prompt
+  if (isOffTopic(message)) {
+    const isRu = /[а-яёА-ЯЁ]/.test(message);
+    return {
+      reply: isRu
+        ? 'Я могу помогать только с UniWork, работой, проектами, откликами, профилем, навыками, собеседованиями и подбором кандидатов.'
+        : 'I can only help with UniWork, jobs, projects, applications, profiles, skills, interviews, and hiring topics.',
+      jobs: [],
+      quickActions: DEFAULT_QUICK_ACTIONS,
+      profileTips: [],
+    };
+  }
+
   const profileRaw = await StudentProfile.findOne({ userId }).lean();
   const profileDoc = (Array.isArray(profileRaw) ? profileRaw[0] : profileRaw) as Record<string, unknown> | null;
   const profile = profileDoc || {};

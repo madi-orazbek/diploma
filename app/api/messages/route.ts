@@ -22,7 +22,21 @@ export async function GET(req: Request) {
 
     const conv = await Conversation.findById(conversationId).lean();
     if (!conv) return ok([]);
-    if (user.role === 'STUDENT' && String((conv as any).studentId) !== user.userId) return ok([]);
+
+    // Access control: student must own the conversation, client must be the employer
+    const convStudentId = String((conv as any).studentId ?? '');
+    const convEmployerId = String((conv as any).employerId ?? '');
+    const participantIds: string[] = ((conv as any).participantIds ?? []).map(String);
+
+    if (user.role === 'STUDENT') {
+      const isParticipant =
+        convStudentId === user.userId || participantIds.includes(user.userId);
+      if (!isParticipant) return ok([]);
+    }
+    if (user.role === 'CLIENT') {
+      const isEmployer = convEmployerId === user.userId || participantIds.includes(user.userId);
+      if (!isEmployer) return ok([]);
+    }
 
     const rows = await Message.find({ conversationId }).sort({ createdAt: 1 }).lean();
     return ok(rows);

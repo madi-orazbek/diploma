@@ -22,6 +22,27 @@ type Intent =
   | 'evaluate_apps'
   | 'general';
 
+const OFF_TOPIC_PATTERNS = [
+  /\b(food|eat|hunger|hungry|recipe|cook|cooking|restaurant|cafe|meal|lunch|dinner|breakfast|drink|coffee|tea)\b/i,
+  /\b(weather|rain|snow|temperature|forecast|climate)\b/i,
+  /\b(movie|film|series|netflix|sport|football|soccer|basketball|game|gaming|anime)\b/i,
+  /\b(politics|election|government|president|war|news)\b/i,
+  /\b(health|doctor|medicine|hospital|symptom|disease|pain)\b/i,
+  /\b(travel|hotel|flight|vacation|holiday|trip|tourism)\b/i,
+  /\b(relationship|love|dating|marriage|friend|family)\b/i,
+  /\b(еда|кушать|голод|рецепт|готовить|ресторан|кафе|обед|ужин|завтрак|кофе|чай)\b/i,
+  /\b(погода|дождь|снег|температура|прогноз)\b/i,
+  /\b(фильм|кино|сериал|спорт|футбол|баскетбол|игра|аниме)\b/i,
+  /\b(политик|выборы|правительство|президент|война|новости)\b/i,
+  /\b(здоровье|врач|больниц|симптом|болезнь|боль)\b/i,
+  /\b(путешест|отель|перелет|отпуск|туризм)\b/i,
+  /\b(отношени|любовь|свидани|замуж|семья)\b/i,
+];
+
+function isOffTopic(text: string): boolean {
+  return OFF_TOPIC_PATTERNS.some((re) => re.test(text));
+}
+
 function parseIntent(input: string): Intent {
   const t = input.toLowerCase();
   if (t.includes('write') || t.includes('post') || t.includes('description') || t.includes('project post')) return 'write_post';
@@ -34,6 +55,17 @@ function parseIntent(input: string): Intent {
 }
 
 export function runClientAssistant(message: string): ClientAssistantReply {
+  if (isOffTopic(message)) {
+    const isRu = /[а-яёА-ЯЁ]/.test(message);
+    return {
+      reply: isRu
+        ? 'Я могу помогать только с UniWork, работой, проектами, откликами, профилем, навыками, собеседованиями и подбором кандидатов.'
+        : 'I can only help with UniWork, jobs, projects, applications, profiles, skills, interviews, and hiring topics.',
+      tips: [],
+      quickActions: DEFAULT_QUICK_ACTIONS,
+    };
+  }
+
   const intent = parseIntent(message);
 
   if (intent === 'write_post') {

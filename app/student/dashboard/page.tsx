@@ -10,6 +10,7 @@ import {
 import { ProfileReadiness } from '@/lib/profileReadiness';
 import { SkillsRadar } from '@/components/student/skills-radar';
 import { CvModal } from '@/components/student/cv-modal';
+import { useI18n } from '@/lib/i18n/I18nContext';
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   SENT:       { label: 'Pending',     color: 'bg-amber-100 text-amber-700' },
@@ -52,6 +53,7 @@ function CompletenessBar({ pct }: { pct: number }) {
 }
 
 export default function StudentDashboard() {
+  const { T } = useI18n();
   const [applications, setApplications] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<JobRecommendation[]>([]);
   const [profileCompletion, setProfileCompletion] = useState(0);
@@ -147,38 +149,38 @@ export default function StudentDashboard() {
         <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/5" />
         <div className="absolute -bottom-8 right-24 h-32 w-32 rounded-full bg-white/5" />
         <div className="relative">
-          <p className="text-sm font-medium text-blue-200">Student workspace</p>
+          <p className="text-sm font-medium text-blue-200">{T('dash_student_workspace')}</p>
           <h1 className="mt-1 text-2xl font-bold md:text-3xl">
-            Hey, {firstName}! 👋
+            {T('dash_welcome_student')}, {firstName}! 👋
           </h1>
           <p className="mt-1.5 max-w-xl text-sm text-blue-100">
-            Track your applications, explore ML-matched projects, and keep your profile market-ready.
+            {T('dash_track_apps')}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href="/projects"
               className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-blue-700 shadow hover:bg-blue-50"
             >
-              🔍 Browse projects
+              {T('dash_browse_projects')}
             </Link>
             <Link
               href="/student/profile"
               className="rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
             >
-              ✏️ Edit profile
+              ✏️ {T('dash_edit_profile')}
             </Link>
             <Link
               href="/student/recommendations"
               className="rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
             >
-              ⭐ My matches
+              {T('dash_my_matches')}
             </Link>
             <button
               type="button"
               onClick={() => setShowCv(true)}
               className="rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
             >
-              📄 Generate CV
+              {T('dash_generate_cv')}
             </button>
           </div>
         </div>
@@ -187,10 +189,10 @@ export default function StudentDashboard() {
       {/* Stats row */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Applications sent', value: sent, icon: '📤', hint: 'Total submitted' },
-          { label: 'Accepted', value: accepted, icon: '✅', hint: 'Confirmed offers' },
-          { label: 'In review', value: inProgress, icon: '⏳', hint: 'Active discussions' },
-          { label: 'Match score', value: recommendations[0] ? `${Math.round(Number(recommendations[0].matchPercent) || 0)}%` : '—', icon: '🎯', hint: 'Top recommendation' },
+          { label: T('dash_apps_sent'), value: sent, icon: '📤', hint: T('dash_total_submitted') },
+          { label: T('dash_accepted'), value: accepted, icon: '✅', hint: T('dash_confirmed_offers') },
+          { label: T('dash_in_review'), value: inProgress, icon: '⏳', hint: T('dash_active_discussions') },
+          { label: T('dash_match_score'), value: recommendations[0] ? `${Math.round(Number(recommendations[0].matchPercent) || 0)}%` : '—', icon: '🎯', hint: T('dash_top_recommendation') },
         ].map(({ label, value, icon, hint }) => (
           <div key={label} className="card p-5 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
@@ -209,14 +211,14 @@ export default function StudentDashboard() {
         {/* LEFT: Recommendations */}
         <div className="card p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-900">Recommended for you</h2>
+            <h2 className="text-xl font-semibold text-slate-900">{T('dash_recommended')}</h2>
             <Link href="/student/recommendations" className="text-sm font-semibold text-blue-600 hover:underline">
-              See all →
+              {T('dash_see_all')}
             </Link>
           </div>
           {profileReadiness.recommendationMode === 'preliminary' && (
             <p className="mt-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              💡 Strengthen your profile to unlock even better matches.
+              💡 {T('dash_profile_improve_hint')}
             </p>
           )}
           {loading ? (
@@ -227,15 +229,15 @@ export default function StudentDashboard() {
             </div>
           ) : profileReadiness.recommendationMode === 'blocked' ? (
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-              <p className="text-lg font-semibold text-slate-900">Profile incomplete</p>
+              <p className="text-lg font-semibold text-slate-900">{T('dash_profile_incomplete')}</p>
               <p className="mt-1 text-sm text-slate-700">
-                Add skills, interests, city, and experience level to unlock ML recommendations.
+                {T('dash_no_recommendations_hint')}
               </p>
               <Link
                 href="/student/profile"
                 className="mt-4 inline-flex rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
               >
-                Complete profile
+                {T('dash_complete_profile')}
               </Link>
             </div>
           ) : recommendations.length ? (
@@ -301,10 +303,10 @@ export default function StudentDashboard() {
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-8 text-center">
               <p className="text-3xl">✨</p>
-              <p className="mt-2 font-semibold text-slate-900">No recommendations yet</p>
-              <p className="mt-1 text-sm text-slate-500">Add skills, interests, and experience to unlock AI-powered matches.</p>
+              <p className="mt-2 font-semibold text-slate-900">{T('dash_no_recommendations')}</p>
+              <p className="mt-1 text-sm text-slate-500">{T('dash_no_recommendations_hint')}</p>
               <Link href="/student/profile" className="mt-4 inline-flex rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-                Complete my profile
+                {T('dash_complete_my_profile')}
               </Link>
             </div>
           )}
@@ -316,7 +318,7 @@ export default function StudentDashboard() {
           {/* Profile completeness card */}
           <div className="card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-900">Profile strength</h3>
+              <h3 className="font-semibold text-slate-900">{T('dash_profile_strength')}</h3>
               <Link href="/student/profile" className="text-xs font-semibold text-blue-600 hover:underline">
                 Edit →
               </Link>
@@ -353,13 +355,13 @@ export default function StudentDashboard() {
 
           {/* Quick actions */}
           <div className="card p-5">
-            <h3 className="mb-3 font-semibold text-slate-900">Quick actions</h3>
+            <h3 className="mb-3 font-semibold text-slate-900">{T('dash_quick_actions')}</h3>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: '🔍 Find projects', href: '/projects' },
-                { label: '✏️ Edit profile', href: '/student/profile' },
-                { label: '📬 Messages', href: '/student/messages' },
-                { label: '📋 Applications', href: '/student/applications' },
+                { label: T('dash_browse_projects'), href: '/projects' },
+                { label: `✏️ ${T('dash_edit_profile')}`, href: '/student/profile' },
+                { label: T('dash_messages'), href: '/student/messages' },
+                { label: T('dash_applications'), href: '/student/applications' },
               ].map(({ label, href }) => (
                 <Link
                   key={href}
@@ -375,9 +377,9 @@ export default function StudentDashboard() {
           {/* Recent applications */}
           <div className="card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-900">Recent applications</h3>
+              <h3 className="font-semibold text-slate-900">{T('dash_recent_apps')}</h3>
               <Link href="/student/applications" className="text-xs font-semibold text-blue-600 hover:underline">
-                All →
+                {T('dash_see_all')}
               </Link>
             </div>
             <div className="mt-3 space-y-2">
@@ -385,7 +387,9 @@ export default function StudentDashboard() {
                 Array.from({ length: 2 }).map((_, i) => (
                   <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100" />
                 ))
-              ) : applications.length ? (
+              ) : applications.length === 0 ? (
+                <p className="py-2 text-center text-xs text-slate-400">{T('dash_no_apps_yet')}</p>
+              ) : (
                 applications.slice(0, 4).map((app: any) => {
                   const sm = statusMeta(app.status);
                   return (
@@ -404,8 +408,6 @@ export default function StudentDashboard() {
                     </div>
                   );
                 })
-              ) : (
-                <p className="py-2 text-center text-xs text-slate-400">No applications yet</p>
               )}
             </div>
           </div>
@@ -414,9 +416,9 @@ export default function StudentDashboard() {
           {recentMessages.length > 0 && (
             <div className="card p-5">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-slate-900">Recent messages</h3>
+                <h3 className="font-semibold text-slate-900">{T('dash_recent_messages')}</h3>
                 <Link href="/student/messages" className="text-xs font-semibold text-blue-600 hover:underline">
-                  All →
+                  {T('dash_see_all')}
                 </Link>
               </div>
               <div className="mt-3 space-y-2">

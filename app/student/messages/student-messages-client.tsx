@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useI18n } from '@/lib/i18n/I18nContext';
 
 type ConvEmployer = { fullName?: string; companyName?: string };
 type ConvApplication = { title?: string; status?: string; coverLetter?: string };
@@ -37,6 +38,7 @@ function fmt(date?: string) {
 }
 
 export default function StudentMessagesClient() {
+  const { T } = useI18n();
   const searchParams = useSearchParams();
   const requestedConversationId = searchParams?.get('conversationId') || '';
 
@@ -119,16 +121,16 @@ export default function StudentMessagesClient() {
   return (
     <div className="flex flex-col py-2">
       <div className="mb-4">
-        <p className="text-sm font-medium text-blue-700">Student workspace</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Messages</h1>
-        <p className="text-sm text-slate-500">Conversations with companies about your applications</p>
+        <p className="text-sm font-medium text-blue-700">{T('msg_student_workspace')}</p>
+        <h1 className="text-2xl font-semibold text-slate-900">{T('msg_messages')}</h1>
+        <p className="text-sm text-slate-500">{T('msg_subtitle')}</p>
       </div>
 
       <div className="grid h-[calc(100vh-220px)] min-h-[560px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[300px_1fr]">
         {/* Sidebar */}
         <aside className="flex flex-col border-r border-slate-200">
           <div className="border-b border-slate-200 px-4 py-3">
-            <p className="text-sm font-semibold text-slate-700">Conversations</p>
+            <p className="text-sm font-semibold text-slate-700">{T('msg_conversations')}</p>
           </div>
           <div className="flex-1 overflow-y-auto">
             {convLoading && (
@@ -139,8 +141,8 @@ export default function StudentMessagesClient() {
             {!convLoading && conversations.length === 0 && (
               <div className="px-4 py-10 text-center">
                 <p className="text-2xl">💬</p>
-                <p className="mt-2 text-sm font-medium text-slate-700">No conversations yet</p>
-                <p className="mt-1 text-xs text-slate-500">Apply to projects to start chatting with companies.</p>
+                <p className="mt-2 text-sm font-medium text-slate-700">{T('msg_no_convs')}</p>
+                <p className="mt-1 text-xs text-slate-500">{T('msg_no_convs_hint')}</p>
               </div>
             )}
             {conversations.map((c) => (
@@ -172,8 +174,8 @@ export default function StudentMessagesClient() {
             <div className="flex flex-1 items-center justify-center p-8 text-center">
               <div>
                 <p className="text-4xl">👈</p>
-                <p className="mt-3 font-semibold text-slate-700">Select a conversation</p>
-                <p className="mt-1 text-sm text-slate-500">Pick a company on the left to view messages</p>
+                <p className="mt-3 font-semibold text-slate-700">{T('msg_select_conv')}</p>
+                <p className="mt-1 text-sm text-slate-500">{T('msg_select_hint')}</p>
               </div>
             </div>
           ) : (
@@ -183,7 +185,7 @@ export default function StudentMessagesClient() {
                   <div>
                     <p className="font-semibold text-slate-900">{displayName(activeConv)}</p>
                     <p className="text-sm text-slate-500">
-                      {displayTitle(activeConv) || 'Direct message'}
+                      {displayTitle(activeConv) || T('msg_direct')}
                       {activeConv.application?.status && (
                         <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${
                           activeConv.application.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
@@ -201,7 +203,7 @@ export default function StudentMessagesClient() {
                         href={`/companies/${(activeConv as any).employerId}`}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                       >
-                        View company
+                        {T('msg_view_company')}
                       </a>
                     )}
                     {activeConv.itemId && (
@@ -209,7 +211,7 @@ export default function StudentMessagesClient() {
                         href={`/projects/${activeConv.itemId}`}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                       >
-                        View project
+                        {T('msg_view_project')}
                       </a>
                     )}
                   </div>
@@ -244,8 +246,8 @@ export default function StudentMessagesClient() {
                 {!loading && messages.length === 0 && (
                   <div className="py-12 text-center">
                     <p className="text-3xl">💬</p>
-                    <p className="mt-2 text-sm font-medium text-slate-700">Start the conversation</p>
-                    <p className="mt-1 text-xs text-slate-500">Your cover letter was sent. You can follow up here.</p>
+                    <p className="mt-2 text-sm font-medium text-slate-700">{T('msg_start_conv')}</p>
+                    <p className="mt-1 text-xs text-slate-500">{T('msg_cover_sent')}</p>
                   </div>
                 )}
                 <div ref={bottomRef} />
@@ -262,7 +264,7 @@ export default function StudentMessagesClient() {
                       e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                    placeholder="Write a message... (Enter to send)"
+                    placeholder={T('msg_placeholder')}
                     rows={1}
                     className="max-h-28 w-full resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
                   />
@@ -272,7 +274,7 @@ export default function StudentMessagesClient() {
                     disabled={!text.trim() || sending}
                     className="btn-primary shrink-0 disabled:opacity-50"
                   >
-                    {sending ? '...' : 'Send'}
+                    {sending ? '...' : T('msg_send')}
                   </button>
                 </div>
               </div>

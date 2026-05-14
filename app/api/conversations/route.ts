@@ -21,8 +21,13 @@ export async function GET(req: Request) {
     let rows: any[] = [];
 
     if (user.role === 'STUDENT') {
-      const filter: any = { studentId: user.userId };
-      if (applicationId) filter.applicationId = applicationId;
+      const filter: any = {
+        $or: [
+          { studentId: new mongoose.Types.ObjectId(user.userId) },
+          { participantIds: new mongoose.Types.ObjectId(user.userId) },
+        ],
+      };
+      if (applicationId) filter.applicationId = new mongoose.Types.ObjectId(applicationId);
       rows = await Conversation.find(filter)
         .sort({ lastMessageAt: -1, updatedAt: -1 })
         .lean();
@@ -43,7 +48,10 @@ export async function GET(req: Request) {
 
       // Enrich with client/company info
       if (rows.length > 0) {
-        const employerIds = [...new Set(rows.map((r: any) => String(r.employerId)).filter(Boolean))];
+        // Filter BEFORE String() so null→'null' (truthy) never reaches the $in query
+        const employerIds = [...new Set(
+          rows.map((r: any) => r.employerId).filter(Boolean).map((id: any) => String(id))
+        )];
         const [employers, clientProfiles, appDocs, projects] = await Promise.all([
           User.find({ _id: { $in: employerIds } }).select('fullName email').lean() as any,
           ClientProfile.find({ userId: { $in: employerIds } }).select('userId companyName').lean() as any,

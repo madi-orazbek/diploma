@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useI18n } from '@/lib/i18n/I18nContext';
 
 const statusStyles: Record<string, string> = {
   SENT: 'bg-blue-100 text-blue-700',
@@ -10,6 +11,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function StudentApplicationsPage() {
+  const { T } = useI18n();
   const [rows, setRows] = useState<any[]>([]);
   const [status, setStatus] = useState('ALL');
   const [loading, setLoading] = useState(false);
@@ -59,8 +61,8 @@ export default function StudentApplicationsPage() {
   return (
     <div className="space-y-6 py-2">
       <section className="card p-6 md:p-8">
-        <h1 className="section-title">My applications</h1>
-        <p className="muted mt-2">Track statuses, manage pending submissions, and prioritize high-match opportunities.</p>
+        <h1 className="section-title">{T('apps_title')}</h1>
+        <p className="muted mt-2">{T('apps_subtitle')}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {['ALL', 'SENT', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'].map((x) => (
             <button
@@ -86,26 +88,26 @@ export default function StudentApplicationsPage() {
               <article key={row._id} className="card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm text-slate-500">{row.itemType === 'vacancy' ? 'Vacancy' : 'Project'}</p>
+                    <p className="text-sm text-slate-500">{row.itemType === 'vacancy' ? T('apps_vacancy') : T('apps_project_type')}</p>
                     <p className="font-semibold text-slate-900">{row.title || row.itemId || row.projectId}</p>
-                    <p className="text-xs text-slate-500">{row.companyName || 'Company not specified'} {row.city ? `· ${row.city}` : ''}</p>
+                    <p className="text-xs text-slate-500">{row.companyName || T('apps_no_company')} {row.city ? `· ${row.city}` : ''}</p>
                   </div>
                   <span className={`status-pill ${statusStyles[row.status] || 'bg-slate-100 text-slate-700'}`}>
                     {row.status}
                   </span>
                 </div>
                 <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-                  <div><p className="text-slate-500">Submitted</p><p className="font-medium text-slate-900">{new Date(row.createdAt).toLocaleDateString()}</p></div>
-                  <div><p className="text-slate-500">Match score</p><p className="font-medium text-slate-900">{Number.isFinite(match) ? `${Math.round(match)}%` : 'N/A'}</p></div>
-                  <div><p className="text-slate-500">Client</p><p className="font-medium text-slate-900">Verified client</p></div>
+                  <div><p className="text-slate-500">{T('apps_submitted')}</p><p className="font-medium text-slate-900">{new Date(row.createdAt).toLocaleDateString()}</p></div>
+                  <div><p className="text-slate-500">{T('apps_match_score')}</p><p className="font-medium text-slate-900">{Number.isFinite(match) ? `${Math.round(match)}%` : 'N/A'}</p></div>
+                  <div><p className="text-slate-500">{T('apps_client_label')}</p><p className="font-medium text-slate-900">{T('apps_verified_client')}</p></div>
                 </div>
                 <div className="mt-4 flex justify-end">
                   <div className="flex gap-2">
-                    {row.conversationId && <a className="btn-secondary" href={`/student/messages?conversationId=${row.conversationId}`}>Open chat</a>}
+                    {row.conversationId && <a className="btn-secondary" href={`/student/messages?conversationId=${row.conversationId}`}>{T('apps_open_chat')}</a>}
                     {row.status === 'SENT' ? (
-                      <button onClick={() => withdraw(row._id)} className="btn-secondary">Withdraw</button>
+                      <button onClick={() => withdraw(row._id)} className="btn-secondary">{T('apps_withdraw')}</button>
                     ) : (
-                      <button className="btn-secondary" disabled>No actions</button>
+                      <button className="btn-secondary" disabled>{T('apps_no_actions')}</button>
                     )}
                   </div>
                 </div>
@@ -116,9 +118,9 @@ export default function StudentApplicationsPage() {
       ) : (
         <div className="card p-10 text-center">
           <p className="text-3xl">📭</p>
-          <h3 className="mt-2 text-lg font-semibold text-slate-900">No applications in this status</h3>
-          <p className="mt-1 text-sm text-slate-600">Apply to new projects to build a stronger pipeline and improve your response rate.</p>
-          <a href="/projects" className="btn-primary mt-4">Browse projects</a>
+          <h3 className="mt-2 text-lg font-semibold text-slate-900">{T('apps_empty_title')}</h3>
+          <p className="mt-1 text-sm text-slate-600">{T('apps_empty_desc')}</p>
+          <a href="/projects" className="btn-primary mt-4">{T('apps_browse')}</a>
         </div>
       )}
     </div>
