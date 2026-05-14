@@ -281,25 +281,39 @@ export function AssistantWidget() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pathname = usePathname();
+  // Track whether we've successfully fetched auth at least once
+  const authFetchedRef = useRef(false);
 
-  // Load role on mount
-  useEffect(() => {
+  // ── Auth fetch helper ──────────────────────────────────────────────────────
+  const loadAuth = () => {
     fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.resolve(null)))
       .then((payload) => {
         const r: Role = payload?.data?.role ?? null;
         setRole(r);
-        const emptyText = r === 'CLIENT' ? CLIENT_EMPTY : STUDENT_EMPTY;
-        setHistory([{ id: uid(), role: 'assistant', text: emptyText, timestamp: Date.now() }]);
-        setRoleLoaded(true);
+        authFetchedRef.current = true;
+        if (!roleLoaded) {
+          const emptyText = r === 'CLIENT' ? CLIENT_EMPTY : STUDENT_EMPTY;
+          setHistory([{ id: uid(), role: 'assistant', text: emptyText, timestamp: Date.now() }]);
+          setRoleLoaded(true);
+        }
       })
       .catch(() => {
-        setHistory([
-          { id: uid(), role: 'assistant', text: STUDENT_EMPTY, timestamp: Date.now() },
-        ]);
-        setRoleLoaded(true);
+        authFetchedRef.current = true;
+        if (!roleLoaded) {
+          setHistory([{ id: uid(), role: 'assistant', text: STUDENT_EMPTY, timestamp: Date.now() }]);
+          setRoleLoaded(true);
+        }
       });
-  }, []);
+  };
+
+  // Load auth once on mount
+  useEffect(() => { loadAuth(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-fetch auth every time the chat opens (catches post-login navigation)
+  useEffect(() => {
+    if (open) loadAuth();
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll after new message or typing indicator
   useEffect(() => {
@@ -318,18 +332,42 @@ export function AssistantWidget() {
 
   const ask = async (question: string) => {
     const trimmed = question.trim();
-    if (!trimmed || busy || !roleLoaded) return;
+    if (!trimmed || busy) return;
 
     setMinimized(false);
 
-    // Guest users get a sign-in prompt
-    if (!role) {
+    // If role state is null, do one fresh auth check before giving up
+    let effectiveRole: Role = role;
+    if (effectiveRole === null) {
+      try {
+        const meRes = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
+        if (meRes.ok) {
+          const mePayload = await meRes.json();
+          effectiveRole = mePayload?.data?.role ?? null;
+          if (effectiveRole !== null) {
+            setRole(effectiveRole);
+            if (!roleLoaded) {
+              setHistory([{
+                id: uid(), role: 'assistant',
+                text: effectiveRole === 'CLIENT' ? CLIENT_EMPTY : STUDENT_EMPTY,
+                timestamp: Date.now(),
+              }]);
+              setRoleLoaded(true);
+            }
+          }
+        }
+      } catch {
+        // leave effectiveRole as null
+      }
+    }
+
+    // Still no role after retry → guest
+    if (!effectiveRole) {
       setHistory((prev) => [
         ...prev,
         { id: uid(), role: 'user', text: trimmed, timestamp: Date.now() },
         {
-          id: uid(),
-          role: 'assistant',
+          id: uid(), role: 'assistant',
           text: 'Please sign in to use the AI assistant. You can browse open projects without an account.',
           timestamp: Date.now(),
         },
@@ -360,6 +398,9 @@ export function AssistantWidget() {
           language: /[а-яёА-ЯЁ]/.test(trimmed) ? 'ru' : 'en',
           page: pathname ?? '/',
           history: historySnapshot,
+          // Explicit context sent to backend (JWT cookie is the actual auth source)
+          isAuthenticated: true,
+          currentUser: { role: effectiveRole },
         }),
       });
 
