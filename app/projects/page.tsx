@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n/I18nContext';
 import { pushNotification } from '@/components/layout/notification-bell';
+import { generateCoverLetter } from '@/lib/cover-letter';
 
 type UnifiedProject = {
   id: string;
@@ -32,7 +33,7 @@ const DEFAULT_COVER = 'Hello, I am interested in this opportunity and would like
 const POPULAR_CHIPS = ['Backend', 'Frontend', 'Python', 'React', 'Data', 'ML', 'Remote', 'Junior'];
 
 export default function ProjectsPage() {
-  const { T } = useI18n();
+  const { T, lang } = useI18n();
   const [rows, setRows] = useState<UnifiedProject[]>([]);
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
@@ -176,49 +177,18 @@ export default function ProjectsPage() {
     toastTimerRef.current = setTimeout(() => setToast(null), 7000);
   }
 
-  async function generateCoverLetter() {
+  async function handleGenerateCoverLetter() {
     if (!applyingId || generatingCover) return;
     const project = rows.find((r) => r.id === applyingId);
     if (!project) return;
     setGeneratingCover(true);
     try {
-      // Fetch the student's own profile to personalise the letter
       const profileRes = await fetch('/api/student/profile', { credentials: 'include' });
       const profilePayload = profileRes.ok ? await profileRes.json() : null;
       const profile = profilePayload?.data || {};
 
-      const studentName = profile.fullName || 'a student';
-      const studentSkills = Array.isArray(profile.skills) ? profile.skills.slice(0, 8).join(', ') : '';
-      const studentLevel = profile.experienceLevel || '';
-      const studentUniversity = profile.university || '';
-      const about = profile.about ? profile.about.slice(0, 200) : '';
-
-      const projectSkills = (project.requiredSkills || []).slice(0, 6).join(', ');
-      const prompt = [
-        `Write a professional cover letter for ${studentName} applying to the role "${project.title}" at ${project.company || 'the company'} (${project.city || 'remote'}).`,
-        studentLevel && `The applicant's experience level is ${studentLevel}.`,
-        studentUniversity && `They study at ${studentUniversity}.`,
-        studentSkills && `Their key skills: ${studentSkills}.`,
-        about && `Brief background: ${about}`,
-        `The role requires: ${projectSkills || 'general technical skills'}.`,
-        'Write 3–4 sentences. Be specific, professional, and enthusiastic. Output ONLY the cover letter text — no greeting line, no header, no signature. Start with "I am".',
-      ].filter(Boolean).join(' ');
-
-      const res = await fetch('/api/assistant/chat', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: prompt }),
-      });
-      const data = await res.json();
-      const reply = data?.data?.reply || data?.reply || '';
-      if (reply) {
-        // Strip any accidental greeting lines or headers
-        const clean = reply
-          .replace(/^(Cover Letter:?\s*|Dear Hiring Manager,?\s*|Hello,?\s*)/i, '')
-          .trim();
-        setCoverLetter(clean || reply);
-      }
+      const letter = await generateCoverLetter(project, profile, lang as 'en' | 'ru');
+      if (letter) setCoverLetter(letter);
     } catch {
       // keep default cover letter on error
     } finally {
@@ -539,7 +509,7 @@ export default function ProjectsPage() {
                     <label className="text-sm font-medium text-slate-700">{T('apply_cover_letter')}</label>
                     <button
                       type="button"
-                      onClick={generateCoverLetter}
+                      onClick={handleGenerateCoverLetter}
                       disabled={generatingCover}
                       className="flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-50"
                     >

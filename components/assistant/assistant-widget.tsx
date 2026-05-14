@@ -226,7 +226,8 @@ export function AssistantWidget() {
     }
   }, [open, minimized]);
 
-  const apiEndpoint = role === 'CLIENT' ? '/api/assistant/client' : '/api/assistant/chat';
+  // All roles use the single secure AI endpoint; it reads OPENAI_API_KEY server-side only
+  const apiEndpoint = '/api/ai/assistant';
   const quickActions = role === 'CLIENT' ? CLIENT_QUICK_ACTIONS : STUDENT_QUICK_ACTIONS;
   const title = role === 'CLIENT' ? '🏢 Project Assistant' : '🎓 AI Career Assistant';
 
@@ -256,7 +257,11 @@ export function AssistantWidget() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({
+          message: trimmed,
+          // Auto-detect language from the message text
+          language: /[а-яёА-ЯЁ]/.test(trimmed) ? 'ru' : 'en',
+        }),
       });
       const payload = await res.json();
       if (!res.ok || !payload?.success) {
@@ -374,7 +379,7 @@ export function AssistantWidget() {
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{title}</p>
-            <p className="text-[11px] text-blue-200">Powered by AI · always available</p>
+            <p className="text-[11px] text-blue-200">Powered by OpenAI · always available</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
