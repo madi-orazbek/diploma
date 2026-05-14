@@ -406,7 +406,7 @@ export function AssistantWidget() {
 
       const payload = await res.json();
 
-      if (!res.ok || !payload?.success) {
+      if (!res.ok || (!payload?.success && !payload?.ok)) {
         const errMsg =
           typeof payload?.error === 'string'
             ? payload.error
@@ -414,13 +414,20 @@ export function AssistantWidget() {
         throw new Error(errMsg);
       }
 
-      const data = payload.data;
+      // Support both { ok, answer } and legacy { success, data: { reply } }
+      const data = payload.data ?? {};
+      const replyText =
+        payload.answer ||
+        data.answer ||
+        data.reply ||
+        'I could not generate a response right now.';
+
       setHistory((prev) => [
         ...prev,
         {
           id: uid(),
           role: 'assistant',
-          text: data.reply || 'I could not generate a response right now.',
+          text: replyText,
           jobs: data.jobs || [],
           tips: data.tips || data.profileTips || [],
           profilePatch: data.profilePatch,
