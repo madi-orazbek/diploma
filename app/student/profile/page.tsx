@@ -28,12 +28,111 @@ type ExperienceEntry = {
 const CITIES = ['Almaty','Astana','Shymkent','Karaganda','Aktobe','Taraz','Pavlodar',
   'Ust-Kamenogorsk','Semey','Atyrau','Kostanay','Kyzylorda','Uralsk',
   'Petropavlovsk','Aktau','Temirtau','Turkistan','Kokshetau','Taldykorgan','Remote'];
-const SKILLS = ['Python','JavaScript','TypeScript','React','Next.js','Node.js','SQL',
-  'PostgreSQL','MongoDB','Django','FastAPI','Flask','Docker','Git','REST API',
-  'Figma','UI/UX','Data Analysis','Machine Learning','QA Testing','HTML','CSS',
-  'Tailwind','Java','C++','Flutter','Firebase','Redis'];
-const INTERESTS = ['Backend','Frontend','Mobile','Data Science','AI/ML',
-  'Product Management','DevOps','UI/UX Design','Cybersecurity','Open Source'];
+const SKILL_OPTIONS: { skill: string; category: string }[] = [
+  // Languages
+  { skill:'Python',      category:'Languages' }, { skill:'JavaScript',  category:'Languages' },
+  { skill:'TypeScript',  category:'Languages' }, { skill:'Java',        category:'Languages' },
+  { skill:'C++',         category:'Languages' }, { skill:'C#',          category:'Languages' },
+  { skill:'Go',          category:'Languages' }, { skill:'Rust',        category:'Languages' },
+  { skill:'Ruby',        category:'Languages' }, { skill:'PHP',         category:'Languages' },
+  { skill:'R',           category:'Languages' }, { skill:'Scala',       category:'Languages' },
+  { skill:'Dart',        category:'Languages' }, { skill:'Bash',        category:'Languages' },
+  { skill:'Lua',         category:'Languages' }, { skill:'Perl',        category:'Languages' },
+  // Frontend
+  { skill:'React',       category:'Frontend' },  { skill:'Next.js',     category:'Frontend' },
+  { skill:'Vue.js',      category:'Frontend' },  { skill:'Angular',     category:'Frontend' },
+  { skill:'Svelte',      category:'Frontend' },  { skill:'HTML',        category:'Frontend' },
+  { skill:'CSS',         category:'Frontend' },  { skill:'Tailwind',    category:'Frontend' },
+  { skill:'SASS',        category:'Frontend' },  { skill:'Redux',       category:'Frontend' },
+  { skill:'Zustand',     category:'Frontend' },  { skill:'Webpack',     category:'Frontend' },
+  { skill:'Vite',        category:'Frontend' },  { skill:'Three.js',    category:'Frontend' },
+  { skill:'Nuxt.js',     category:'Frontend' },  { skill:'Remix',       category:'Frontend' },
+  // Backend
+  { skill:'Node.js',     category:'Backend' },   { skill:'Django',      category:'Backend' },
+  { skill:'FastAPI',     category:'Backend' },   { skill:'Flask',       category:'Backend' },
+  { skill:'Express',     category:'Backend' },   { skill:'NestJS',      category:'Backend' },
+  { skill:'Spring',      category:'Backend' },   { skill:'ASP.NET',     category:'Backend' },
+  { skill:'Laravel',     category:'Backend' },   { skill:'Rails',       category:'Backend' },
+  { skill:'GraphQL',     category:'Backend' },   { skill:'REST API',    category:'Backend' },
+  { skill:'gRPC',        category:'Backend' },   { skill:'WebSocket',   category:'Backend' },
+  { skill:'Hono',        category:'Backend' },   { skill:'Gin',         category:'Backend' },
+  // Databases
+  { skill:'PostgreSQL',     category:'Databases' }, { skill:'MySQL',       category:'Databases' },
+  { skill:'MongoDB',        category:'Databases' }, { skill:'Redis',       category:'Databases' },
+  { skill:'SQL',            category:'Databases' }, { skill:'SQLite',      category:'Databases' },
+  { skill:'Cassandra',      category:'Databases' }, { skill:'Elasticsearch',category:'Databases' },
+  { skill:'Supabase',       category:'Databases' }, { skill:'Firebase',    category:'Databases' },
+  { skill:'Prisma',         category:'Databases' }, { skill:'SQLAlchemy',  category:'Databases' },
+  { skill:'DynamoDB',       category:'Databases' }, { skill:'ClickHouse',  category:'Databases' },
+  { skill:'Neo4j',          category:'Databases' }, { skill:'Pinecone',    category:'Databases' },
+  // ML / AI / Data
+  { skill:'Machine Learning', category:'ML/AI' }, { skill:'Deep Learning',    category:'ML/AI' },
+  { skill:'TensorFlow',       category:'ML/AI' }, { skill:'PyTorch',          category:'ML/AI' },
+  { skill:'scikit-learn',     category:'ML/AI' }, { skill:'Keras',            category:'ML/AI' },
+  { skill:'Pandas',           category:'ML/AI' }, { skill:'NumPy',            category:'ML/AI' },
+  { skill:'OpenCV',           category:'ML/AI' }, { skill:'Hugging Face',     category:'ML/AI' },
+  { skill:'LangChain',        category:'ML/AI' }, { skill:'CatBoost',         category:'ML/AI' },
+  { skill:'XGBoost',          category:'ML/AI' }, { skill:'LightGBM',         category:'ML/AI' },
+  { skill:'NLP',              category:'ML/AI' }, { skill:'Computer Vision',  category:'ML/AI' },
+  { skill:'Data Analysis',    category:'ML/AI' }, { skill:'Power BI',         category:'ML/AI' },
+  { skill:'Tableau',          category:'ML/AI' }, { skill:'Matplotlib',       category:'ML/AI' },
+  { skill:'Seaborn',          category:'ML/AI' }, { skill:'Apache Spark',     category:'ML/AI' },
+  { skill:'Airflow',          category:'ML/AI' }, { skill:'dbt',              category:'ML/AI' },
+  { skill:'Plotly',           category:'ML/AI' }, { skill:'Statsmodels',      category:'ML/AI' },
+  // DevOps / Cloud
+  { skill:'Docker',         category:'DevOps' },  { skill:'Kubernetes',     category:'DevOps' },
+  { skill:'CI/CD',          category:'DevOps' },  { skill:'Git',            category:'DevOps' },
+  { skill:'GitHub Actions', category:'DevOps' },  { skill:'GitLab CI',      category:'DevOps' },
+  { skill:'Nginx',          category:'DevOps' },  { skill:'Linux',          category:'DevOps' },
+  { skill:'AWS',            category:'DevOps' },  { skill:'Google Cloud',   category:'DevOps' },
+  { skill:'Azure',          category:'DevOps' },  { skill:'Terraform',      category:'DevOps' },
+  { skill:'Ansible',        category:'DevOps' },  { skill:'Jenkins',        category:'DevOps' },
+  { skill:'Prometheus',     category:'DevOps' },  { skill:'Grafana',        category:'DevOps' },
+  { skill:'Vercel',         category:'DevOps' },  { skill:'Render',         category:'DevOps' },
+  { skill:'Cloudflare',     category:'DevOps' },  { skill:'Helm',           category:'DevOps' },
+  // Mobile
+  { skill:'Flutter',          category:'Mobile' }, { skill:'React Native',   category:'Mobile' },
+  { skill:'Swift',            category:'Mobile' }, { skill:'Kotlin',         category:'Mobile' },
+  { skill:'SwiftUI',          category:'Mobile' }, { skill:'Jetpack Compose',category:'Mobile' },
+  { skill:'Expo',             category:'Mobile' },
+  // Design
+  { skill:'Figma',      category:'Design' }, { skill:'UI/UX',     category:'Design' },
+  { skill:'Adobe XD',   category:'Design' }, { skill:'Photoshop', category:'Design' },
+  { skill:'Illustrator',category:'Design' }, { skill:'Framer',    category:'Design' },
+  { skill:'Wireframing',category:'Design' },
+  // QA
+  { skill:'QA Testing', category:'QA' }, { skill:'Selenium',  category:'QA' },
+  { skill:'Cypress',    category:'QA' }, { skill:'Jest',       category:'QA' },
+  { skill:'Pytest',     category:'QA' }, { skill:'Postman',    category:'QA' },
+  { skill:'JUnit',      category:'QA' }, { skill:'Playwright', category:'QA' },
+  { skill:'k6',         category:'QA' },
+  // Messaging
+  { skill:'Kafka',    category:'Messaging' }, { skill:'RabbitMQ', category:'Messaging' },
+  { skill:'Celery',   category:'Messaging' }, { skill:'NATS',     category:'Messaging' },
+  // Other
+  { skill:'Telegram Bot',    category:'Other' }, { skill:'Blockchain',      category:'Other' },
+  { skill:'Smart Contracts', category:'Other' }, { skill:'Solidity',        category:'Other' },
+  { skill:'Microservices',   category:'Other' }, { skill:'System Design',   category:'Other' },
+  { skill:'Algorithms',      category:'Other' }, { skill:'OOP',             category:'Other' },
+  { skill:'Agile',           category:'Other' }, { skill:'Scrum',           category:'Other' },
+  { skill:'Jira',            category:'Other' }, { skill:'Notion',          category:'Other' },
+  { skill:'Linux Admin',     category:'Other' }, { skill:'Networking',      category:'Other' },
+];
+
+const INTEREST_OPTIONS = [
+  'Backend Development','Frontend Development','Full Stack','Mobile Development',
+  'iOS Development','Android Development','Data Science','Data Engineering',
+  'Data Analytics','Machine Learning','Deep Learning','Computer Vision','NLP','AI',
+  'DevOps','Cloud Infrastructure','Platform Engineering','SRE',
+  'UI/UX Design','Product Design','Graphic Design',
+  'Cybersecurity','Network Security','Penetration Testing',
+  'Blockchain','Web3','Smart Contracts',
+  'Game Development','Bot Development','Telegram Bots',
+  'Product Management','Project Management','Scrum Master',
+  'Open Source','Startup','Freelance',
+  'Embedded Systems','IoT','Robotics',
+  'QA/Testing','Automation Testing','Performance Testing',
+];
 const LANGUAGE_OPTIONS = ['Kazakh','Russian','English','Turkish','German','French','Chinese','Korean','Other'];
 const DEGREE_OPTIONS = ["Bachelor's","Master's","PhD","Associate","Diploma","Foundation","Certificate Program","Other"];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -130,6 +229,9 @@ export default function StudentProfilePage() {
   const [editPortIdx, setEditPortIdx] = useState<number|null>(null);
   const [langQ, setLangQ] = useState('');
   const [skillQ, setSkillQ] = useState('');
+  const [interestQ, setInterestQ] = useState('');
+  const [showSkillDrop, setShowSkillDrop] = useState(false);
+  const [showInterestDrop, setShowInterestDrop] = useState(false);
 
   /* load profile */
   useEffect(() => {
@@ -591,38 +693,128 @@ export default function StudentProfilePage() {
           <section className="card p-6">
             <SectionHeader title="Skills & Interests" icon="⚡" complete={saved.skills}/>
             <div className="grid gap-5 md:grid-cols-2">
+
+              {/* ─── Skills combobox ─── */}
               <div>
-                <LF label="Skills" hint="Type + Enter or click to add">
-                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none" value={skillQ} onChange={(e)=>setSkillQ(e.target.value)}
-                    onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();addTag(skillQ,'skills');setSkillQ('');}}} placeholder="e.g. Python, React"/>
+                <LF label="Skills" hint="Type to search — or add anything with Enter">
+                  <div className="relative">
+                    <input
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
+                      value={skillQ}
+                      onChange={(e) => { setSkillQ(e.target.value); setShowSkillDrop(true); }}
+                      onFocus={() => setShowSkillDrop(true)}
+                      onBlur={() => setTimeout(() => setShowSkillDrop(false), 150)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); addTag(skillQ, 'skills'); setSkillQ(''); setShowSkillDrop(false); }
+                        if (e.key === 'Escape') setShowSkillDrop(false);
+                      }}
+                      placeholder="Python, React, Docker…"
+                    />
+                    {showSkillDrop && skillQ.trim() !== '' && (
+                      <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto">
+                        {SKILL_OPTIONS
+                          .filter(o => o.skill.toLowerCase().includes(skillQ.toLowerCase()) && !form.skills.includes(o.skill))
+                          .slice(0, 10)
+                          .map(o => (
+                            <button key={o.skill} type="button"
+                              onMouseDown={() => { addTag(o.skill, 'skills'); setSkillQ(''); setShowSkillDrop(false); }}
+                              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-blue-50">
+                              <span>{o.skill}</span>
+                              <span className="text-xs text-slate-400 shrink-0 ml-2">{o.category}</span>
+                            </button>
+                          ))
+                        }
+                        {!SKILL_OPTIONS.some(o => o.skill.toLowerCase() === skillQ.trim().toLowerCase()) && (
+                          <button type="button"
+                            onMouseDown={() => { addTag(skillQ.trim(), 'skills'); setSkillQ(''); setShowSkillDrop(false); }}
+                            className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-left text-sm text-blue-600 hover:bg-blue-50">
+                            <span className="font-bold">+</span>
+                            <span>Add <strong>&ldquo;{skillQ.trim()}&rdquo;</strong> as custom skill</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </LF>
+                {/* Selected pills */}
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {form.skills.map((s)=><Pill key={s} text={s} color="bg-blue-50 text-blue-700" onRemove={()=>removeTag(s,'skills')}/>)}
+                  {form.skills.map(s => <Pill key={s} text={s} color="bg-blue-50 text-blue-700" onRemove={() => removeTag(s, 'skills')}/>)}
                 </div>
-                <p className="mt-2 text-xs text-slate-400">Quick add:</p>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {SKILLS.filter((s)=>!form.skills.includes(s)).slice(0,12).map((s)=>(
-                    <button key={s} type="button" onClick={()=>addTag(s,'skills')} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700">{s}</button>
-                  ))}
-                </div>
+                {/* Popular when input is empty */}
+                {skillQ.trim() === '' && (
+                  <>
+                    <p className="mt-2 text-xs text-slate-400">Popular:</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {SKILL_OPTIONS.filter(o => !form.skills.includes(o.skill)).slice(0, 16).map(o => (
+                        <button key={o.skill} type="button" onClick={() => addTag(o.skill, 'skills')}
+                          className="rounded-full border border-slate-200 px-2 py-0.5 text-xs hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700">
+                          {o.skill}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
+
+              {/* ─── Interests combobox ─── */}
               <div>
                 <LF label="Interests" hint="Areas you want to work in">
-                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
-                    onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();addTag((e.target as HTMLInputElement).value,'interests');(e.target as HTMLInputElement).value='';}}} placeholder="e.g. Backend, AI/ML"/>
+                  <div className="relative">
+                    <input
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-300 focus:outline-none"
+                      value={interestQ}
+                      onChange={(e) => { setInterestQ(e.target.value); setShowInterestDrop(true); }}
+                      onFocus={() => setShowInterestDrop(true)}
+                      onBlur={() => setTimeout(() => setShowInterestDrop(false), 150)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); addTag(interestQ, 'interests'); setInterestQ(''); setShowInterestDrop(false); }
+                        if (e.key === 'Escape') setShowInterestDrop(false);
+                      }}
+                      placeholder="Backend, AI/ML, DevOps…"
+                    />
+                    {showInterestDrop && (
+                      <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-52 overflow-auto">
+                        {INTEREST_OPTIONS
+                          .filter(i => i.toLowerCase().includes(interestQ.toLowerCase()) && !form.interests.includes(i))
+                          .map(i => (
+                            <button key={i} type="button"
+                              onMouseDown={() => { addTag(i, 'interests'); setInterestQ(''); setShowInterestDrop(false); }}
+                              className="block w-full px-3 py-2 text-left text-sm hover:bg-indigo-50">
+                              {i}
+                            </button>
+                          ))
+                        }
+                        {interestQ.trim() !== '' && !INTEREST_OPTIONS.some(i => i.toLowerCase() === interestQ.trim().toLowerCase()) && (
+                          <button type="button"
+                            onMouseDown={() => { addTag(interestQ.trim(), 'interests'); setInterestQ(''); setShowInterestDrop(false); }}
+                            className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-left text-sm text-indigo-600 hover:bg-indigo-50">
+                            <span className="font-bold">+</span>
+                            <span>Add <strong>&ldquo;{interestQ.trim()}&rdquo;</strong></span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </LF>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {form.interests.map((i)=><Pill key={i} text={i} color="bg-indigo-50 text-indigo-700" onRemove={()=>removeTag(i,'interests')}/>)}
+                  {form.interests.map(i => <Pill key={i} text={i} color="bg-indigo-50 text-indigo-700" onRemove={() => removeTag(i, 'interests')}/>)}
                 </div>
-                <p className="mt-2 text-xs text-slate-400">Quick add:</p>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {INTERESTS.filter((s)=>!form.interests.includes(s)).map((s)=>(
-                    <button key={s} type="button" onClick={()=>addTag(s,'interests')} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700">{s}</button>
-                  ))}
-                </div>
+                {interestQ.trim() === '' && (
+                  <>
+                    <p className="mt-2 text-xs text-slate-400">Popular:</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {INTEREST_OPTIONS.filter(i => !form.interests.includes(i)).slice(0, 12).map(i => (
+                        <button key={i} type="button" onClick={() => addTag(i, 'interests')}
+                          className="rounded-full border border-slate-200 px-2 py-0.5 text-xs hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700">
+                          {i}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-            <SaveBtn onClick={()=>saveSection('skills')} saved={saved.skills}/>
+            <SaveBtn onClick={() => saveSection('skills')} saved={saved.skills}/>
           </section>
 
           {/* ④ Experience */}
